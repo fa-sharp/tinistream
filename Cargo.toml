@@ -1,0 +1,26 @@
+[package]
+name = "redis-sse-streamer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+aes-gcm = "0.10"
+base64 = "0.22"
+dotenvy = "0.15.7"
+fred = { version = "10.1", default-features = false, features = [
+  "i-keys",
+  "i-streams",
+  "transactions",
+] }
+hex = "0.4.3"
+itertools = "0.14.0"
+rocket = { version = "0.5.1", features = ["json", "secrets", "uuid"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+time = "0.3"
+tokio = { version = "1.45", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+urlencoding = "2.1"
+uuid = { version = "1.17", features = ["serde", "v4"] }
