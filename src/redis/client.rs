@@ -71,13 +71,13 @@ impl RedisClient {
         self.client.xadd(key, true, None, "*", end_entry).await
     }
 
-    /// End the stream by writing a `cancel` event. Returns the ID of the end event.
+    /// End the stream by writing a `cancel` event. Returns the ID of the cancel event.
     pub async fn cancel_stream(&self, key: &str) -> FredResult<String> {
         let cancel_entry = (EVENT_KEY, CANCEL);
         self.client.xadd(key, true, None, "*", cancel_entry).await
     }
 
-    /// Check if there's an active stream with the given key, by looking at the last event.
+    /// Check if there's an active stream with the given key, by looking up the last event.
     pub async fn is_active(&self, key: &str) -> FredResult<bool> {
         match self.last_n_events(key, 1).await? {
             Some(events) => Ok(!events.iter().any(is_end_event)),

@@ -2,7 +2,7 @@ mod client;
 pub use client::RedisClient;
 
 pub mod constants;
-mod util;
+pub mod util;
 
 use fred::prelude::{Builder, ClientLike, Config, Pool, TcpConfig};
 use rocket::fairing::AdHoc;
