@@ -1,10 +1,4 @@
-use fred::{
-    prelude::{Client, FredResult, KeysInterface, Pool, StreamsInterface, TransactionInterface},
-    types::{
-        scan::{ScanType, Scanner},
-        Value,
-    },
-};
+use fred::prelude::*;
 use itertools::Itertools;
 use rocket::{
     futures::StreamExt,
@@ -14,8 +8,8 @@ use rocket::{
 
 use crate::redis::{constants::*, util::*};
 
-/// Request guard to retrieve a Redis client from the static pool. Should not be used for
-/// long-running or blocking requests.
+/// Request guard to retrieve a Redis client from the static pool. This should
+/// not be used for long-running or blocking requests (use the `RedisReader` instead).
 pub struct RedisClient {
     client: Client,
 }
@@ -54,15 +48,15 @@ impl RedisClient {
         events: Vec<Vec<(&str, &str)>>,
         ttl: u32,
     ) -> FredResult<Vec<String>> {
-        let trx = self.client.multi(); // use a transaction
+        let trx = self.client.multi(); // use a transaction to ensure atomicity
         for event in events {
             let _: () = trx.xadd(key, true, XADD_CAP, "*", event).await?;
         }
         let _: () = trx.expire(key, ttl.into(), None).await?;
-        let mut results: Vec<String> = trx.exec(true).await?;
-        results.pop(); // Remove expiration response
+        let mut responses: Vec<String> = trx.exec(true).await?;
+        responses.pop(); // Remove expiration response
 
-        Ok(results)
+        Ok(responses)
     }
 
     /// End the stream by writing an `end` event. Returns the ID of the end event.
@@ -87,6 +81,7 @@ impl RedisClient {
 
     /// Get the ID, length, and TTL of all active streams matching the given pattern.
     pub async fn scan_streams(&self, pattern: &str) -> FredResult<Vec<(String, u64, i64)>> {
+        use fred::types::scan::{ScanType, Scanner};
         const PAGE_COUNT: u32 = 50;
 
         let mut streams = Vec::with_capacity(PAGE_COUNT as usize);

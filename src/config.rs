@@ -14,8 +14,10 @@ pub struct AppConfig {
     pub server_address: String,
     /// Redis connection URL
     pub redis_url: String,
-    /// Redis static pool size (default: 2)
+    /// Redis static pool size (default: 4)
     pub redis_pool: Option<usize>,
+    /// Maximum number of concurrent streams (default: 20)
+    pub max_streams: Option<usize>,
     /// API key for creating and writing to Redis streams
     pub api_key: String,
     /// 32-byte hex string (64 characters) used for encrypting client tokens
