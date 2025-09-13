@@ -1,12 +1,12 @@
 use fred::{bytes_utils::Str, prelude::*};
 use rocket::{
-    async_trait,
+    async_stream, async_trait,
+    futures::stream::Stream,
     http::Status,
     request::{FromRequest, Outcome},
     response::stream::Event as SseEvent,
     Request,
 };
-use tokio::sync::mpsc::Sender;
 
 use crate::{
     errors::ApiError,
@@ -18,7 +18,7 @@ use crate::{
 };
 
 /// Request guard that retrieves a stream reader with an exclusive lock on a Redis connection, for
-/// long-running read operations (i.e. for streaming SSE events from Redis to clients)
+/// long-running read operations (e.g. for streaming SSE events from Redis to clients)
 pub struct RedisReader {
     client: deadpool::managed::Object<ExclusiveClientManager>,
 }
@@ -71,23 +71,22 @@ impl RedisReader {
     }
 
     /// Listen for new events in the Redis stream using blocking `xread` commands, and
-    /// stream SSE events to the sender.
-    pub async fn stream_sse_events(&self, key: &str, last_event_id: &str, tx: &Sender<SseEvent>) {
+    /// return a stream of SSE events.
+    pub fn stream_sse_events(self, key: &str, last_event_id: &str) -> impl Stream<Item = SseEvent> {
+        let key = key.to_owned();
         let mut last_event_id = last_event_id.to_owned();
 
-        while let Some(res) = self.next_event(key, &last_event_id).await {
-            match res {
-                Ok((id, data)) => {
-                    last_event_id = (*id).to_owned();
-                    let sse_event = stream_event_to_sse((id, data));
-                    if let Err(_) = tx.send(sse_event).await {
-                        break; // client disconnected
+        async_stream::stream! {
+            while let Some(res) = self.next_event(&key, &last_event_id).await {
+                match res {
+                    Ok((id, data)) => {
+                        last_event_id = (*id).to_owned();
+                        yield stream_event_to_sse((id, data));
                     }
-                }
-                Err(err) => {
-                    let event = SseEvent::data(format!("Error: {}", err)).event("error");
-                    tx.send(event).await.ok();
-                    break;
+                    Err(err) => {
+                        yield SseEvent::data(err.to_string()).event("error");
+                        break;
+                    }
                 }
             }
         }
@@ -119,7 +118,7 @@ impl RedisReader {
             .client
             .xread::<Option<Vec<(Str, _)>>, _, _>(count, block, key, start_event_id)
             .await?
-            .and_then(|mut streams| streams.pop()) // should only be 1 stream since we're sending 1 key in the command
+            .and_then(|mut streams| streams.pop()) // only reading 1 stream in the command
             .ok_or_else(|| ApiError::NotFound("Stream not found".to_owned()))?;
         Ok(events)
     }

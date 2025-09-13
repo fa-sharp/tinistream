@@ -29,7 +29,6 @@ pub fn stream_event_to_sse((id, fields): RedisEntry) -> response::stream::Event 
             _ => {}
         }
     }
-
     response::stream::Event::data(data.unwrap_or_default())
         .event(event.unwrap_or_else(|| "unknown".into()))
         .id((*id).to_owned())
