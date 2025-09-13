@@ -1,11 +1,14 @@
 mod client;
-pub use client::RedisClient;
-
+mod constants;
+mod last_event_id;
 mod reader;
-pub use reader::RedisReader;
+mod util;
 
-pub mod constants;
-pub mod util;
+pub use client::RedisClient;
+pub use constants::*;
+pub use last_event_id::LastEventIdHeader;
+pub use reader::RedisReader;
+pub use util::*;
 
 use fred::prelude::{Builder, Client, ClientLike, Config, Pool, ReconnectPolicy, TcpConfig};
 use rocket::fairing::AdHoc;
@@ -24,6 +27,17 @@ const CLIENT_TIMEOUT: Duration = Duration::from_secs(6);
 const IDLE_TASK_INTERVAL: Duration = Duration::from_secs(120);
 /// Shut down exclusive clients after this period of inactivity.
 const IDLE_TIME: Duration = Duration::from_secs(60 * 5);
+
+/// A pool of Redis clients with exclusive connections for long-running operations. Will
+/// be stored in Rocket's managed state.
+pub type ExclusiveClientPool = deadpool::managed::Pool<ExclusiveClientManager>;
+
+/// Deadpool implementation for a pool of exclusive Redis clients.
+#[derive(Debug)]
+pub struct ExclusiveClientManager {
+    pool: fred::clients::Pool,
+    clients: Arc<Mutex<Vec<Client>>>,
+}
 
 /// Redis setup fairing
 pub fn setup_redis() -> AdHoc {
@@ -96,17 +110,6 @@ pub fn setup_redis() -> AdHoc {
     })
 }
 
-/// A pool of Redis clients with exclusive connections for long-running operations. Will
-/// be stored in Rocket's managed state.
-pub type ExclusiveClientPool = deadpool::managed::Pool<ExclusiveClientManager>;
-
-/// Deadpool implementation for a pool of exclusive Redis clients.
-#[derive(Debug)]
-pub struct ExclusiveClientManager {
-    pool: fred::clients::Pool,
-    clients: Arc<Mutex<Vec<Client>>>,
-}
-
 impl ExclusiveClientManager {
     pub fn new(pool: fred::clients::Pool) -> Self {
         Self {
@@ -115,6 +118,7 @@ impl ExclusiveClientManager {
         }
     }
 }
+
 impl deadpool::managed::Manager for ExclusiveClientManager {
     type Type = Client;
     type Error = fred::error::Error;

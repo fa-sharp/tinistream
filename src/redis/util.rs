@@ -20,8 +20,7 @@ pub fn stream_sse_url(key: &str, base_url: &str) -> String {
 /// Convert a Redis stream event into a Rocket SSE event. Expects the event data to contain
 /// an "event" and "data" field.
 pub fn stream_event_to_sse((id, fields): RedisEntry) -> response::stream::Event {
-    let mut event: Option<String> = None;
-    let mut data: Option<String> = None;
+    let (mut event, mut data) = (None, None);
     for (key, value) in fields {
         match key.deref() {
             EVENT_KEY => event = Some((*value).to_owned()),

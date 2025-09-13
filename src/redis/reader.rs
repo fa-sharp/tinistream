@@ -51,7 +51,7 @@ impl RedisReader {
     ///
     /// Returns a tuple containing the previous events, the last event ID, and a boolean
     /// indicating if the stream has already ended.
-    pub async fn get_prev_sse_events(
+    pub async fn prev_sse_events(
         &self,
         key: &str,
         start_event_id: Option<&str>,
@@ -97,9 +97,9 @@ impl RedisReader {
     async fn next_event(
         &self,
         key: &str,
-        last_event_id: &str,
+        start_event_id: &str,
     ) -> Option<Result<RedisEntry, ApiError>> {
-        self.xread(key, last_event_id, Some(1), Some(XREAD_BLOCK_TIMEOUT))
+        self.xread(key, start_event_id, Some(1), Some(XREAD_BLOCK_TIMEOUT))
             .await
             .map(|mut entries| entries.pop()) // only reading 1 event in the command
             .map(|entry| entry.filter(|e| !is_end_event(e))) // return `None` for ending event

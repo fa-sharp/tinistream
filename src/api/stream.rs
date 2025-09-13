@@ -7,11 +7,7 @@ use crate::{
     config::AppConfig,
     crypto::Crypto,
     errors::ApiError,
-    redis::{
-        constants::{DATA_KEY, EVENT_KEY},
-        util::stream_sse_url,
-        RedisClient,
-    },
+    redis::{stream_sse_url, RedisClient, DATA_KEY, EVENT_KEY},
 };
 
 pub fn get_routes() -> Vec<Route> {
@@ -23,13 +19,6 @@ pub fn get_routes() -> Vec<Route> {
         cancel_stream,
         end_stream
     ]
-}
-
-#[derive(Serialize)]
-pub struct Stream {
-    key: String,
-    length: u64,
-    ttl: i64,
 }
 
 /// List all streams
@@ -45,17 +34,6 @@ async fn list_streams(
         .collect();
 
     Ok(Json(response))
-}
-
-#[derive(Deserialize)]
-pub struct StreamRequest {
-    key: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct CreateStreamResponse {
-    url: String,
-    token: String,
 }
 
 /// Create a new stream and get a URL and client token
@@ -94,23 +72,6 @@ async fn create_token(
     Ok(Json(CreateStreamResponse { url, token }))
 }
 
-#[derive(Deserialize)]
-struct AddEventsRequest {
-    key: String,
-    events: Vec<AddEvent>,
-}
-
-#[derive(Deserialize)]
-struct AddEvent {
-    event: String,
-    data: String,
-}
-
-#[derive(Serialize)]
-struct AddEventsResponse {
-    ids: Vec<String>,
-}
-
 /// Add events to a stream
 #[post("/add", data = "<input>")]
 async fn add_events(
@@ -131,12 +92,6 @@ async fn add_events(
     let ids = redis.write_events(&input.key, entries, config.ttl).await?;
 
     Ok(Json(AddEventsResponse { ids }))
-}
-
-#[derive(Serialize)]
-struct EndStreamResponse {
-    /// ID of the ending event
-    id: String,
 }
 
 // Cancel a stream
@@ -167,4 +122,45 @@ async fn end_stream(
 
     let id = redis.end_stream(&input.key).await?;
     Ok(Json(EndStreamResponse { id }))
+}
+
+#[derive(Serialize)]
+pub struct Stream {
+    key: String,
+    length: u64,
+    ttl: i64,
+}
+
+#[derive(Deserialize)]
+struct StreamRequest {
+    key: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct CreateStreamResponse {
+    url: String,
+    token: String,
+}
+
+#[derive(Deserialize)]
+struct AddEventsRequest {
+    key: String,
+    events: Vec<AddEvent>,
+}
+
+#[derive(Deserialize)]
+struct AddEvent {
+    event: String,
+    data: String,
+}
+
+#[derive(Serialize)]
+struct AddEventsResponse {
+    ids: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct EndStreamResponse {
+    /// ID of the ending event
+    id: String,
 }
