@@ -18,7 +18,7 @@ pub struct AppConfig {
     pub redis_pool: Option<usize>,
     /// Maximum number of concurrent streams (default: 20)
     pub max_streams: Option<usize>,
-    /// API key for creating and writing to Redis streams
+    /// API key for creating and writing Redis streams
     pub api_key: String,
     /// 32-byte hex string (64 characters) used for encrypting client tokens
     pub secret_key: String,

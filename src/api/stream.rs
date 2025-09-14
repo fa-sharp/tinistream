@@ -1,4 +1,6 @@
-use rocket::{get, post, routes, serde::json::Json, Route, State};
+use rocket::{get, post, serde::json::Json, Route, State};
+use rocket_okapi::{okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use time::ext::NumericalDuration;
 
@@ -10,8 +12,8 @@ use crate::{
     redis::{stream_sse_url, RedisClient, DATA_KEY, EVENT_KEY},
 };
 
-pub fn get_routes() -> Vec<Route> {
-    routes![
+pub fn get_routes() -> (Vec<Route>, OpenApi) {
+    openapi_get_routes_spec![
         list_streams,
         create_stream,
         create_token,
@@ -21,22 +23,28 @@ pub fn get_routes() -> Vec<Route> {
     ]
 }
 
-/// List all streams
-#[get("/")]
+/// # List streams
+/// List all active streams
+///
+#[openapi(tag = "Stream")]
+#[get("/<pattern>")]
 async fn list_streams(
     _api_key: ApiKeyAuth,
+    pattern: Option<&str>,
     redis: RedisClient,
-) -> Result<Json<Vec<Stream>>, ApiError> {
-    let streams = redis.scan_streams("*").await?;
+) -> Result<Json<Vec<StreamInfo>>, ApiError> {
+    let streams = redis.scan_streams(pattern.unwrap_or("*")).await?;
     let response = streams
         .into_iter()
-        .map(|(key, length, ttl)| Stream { key, length, ttl })
+        .map(|(key, length, ttl)| StreamInfo { key, length, ttl })
         .collect();
 
     Ok(Json(response))
 }
 
-/// Create a new stream and get a URL and client token
+/// # Create stream
+/// Create a new stream, and get a client URL and token to connect to the stream
+#[openapi(tag = "Stream")]
 #[post("/", data = "<input>")]
 async fn create_stream(
     _api_key: ApiKeyAuth,
@@ -46,7 +54,7 @@ async fn create_stream(
     config: &State<AppConfig>,
 ) -> Result<Json<CreateStreamResponse>, ApiError> {
     if redis.is_active(&input.key).await? {
-        return Err(ApiError::ActiveStream);
+        return Err(ApiError::ExistingStream);
     }
     redis.start_stream(&input.key, config.ttl).await?;
 
@@ -57,7 +65,9 @@ async fn create_stream(
     Ok(Json(CreateStreamResponse { url, token }))
 }
 
-/// Create a new client token for a stream
+/// # Create stream token
+/// Create a new client token to connect to a stream
+#[openapi(tag = "Stream")]
 #[post("/token", data = "<input>")]
 async fn create_token(
     _api_key: ApiKeyAuth,
@@ -72,7 +82,9 @@ async fn create_token(
     Ok(Json(CreateStreamResponse { url, token }))
 }
 
+/// # Add events
 /// Add events to a stream
+#[openapi(tag = "Stream")]
 #[post("/add", data = "<input>")]
 async fn add_events(
     _api_key: ApiKeyAuth,
@@ -81,7 +93,7 @@ async fn add_events(
     config: &State<AppConfig>,
 ) -> Result<Json<AddEventsResponse>, ApiError> {
     if !redis.is_active(&input.key).await? {
-        return Err(ApiError::NotFound("No active stream".to_owned()));
+        return Err(ApiError::ActiveStreamNotFound);
     }
 
     let entries = input
@@ -94,7 +106,8 @@ async fn add_events(
     Ok(Json(AddEventsResponse { ids }))
 }
 
-// Cancel a stream
+/// # Cancel stream
+#[openapi(tag = "Stream")]
 #[post("/cancel", data = "<input>")]
 async fn cancel_stream(
     _api_key: ApiKeyAuth,
@@ -102,14 +115,15 @@ async fn cancel_stream(
     redis: RedisClient,
 ) -> Result<Json<EndStreamResponse>, ApiError> {
     if !redis.is_active(&input.key).await? {
-        return Err(ApiError::NotFound("No active stream".to_owned()));
+        return Err(ApiError::ActiveStreamNotFound);
     }
 
     let id = redis.cancel_stream(&input.key).await?;
     Ok(Json(EndStreamResponse { id }))
 }
 
-// End stream
+/// # End stream
+#[openapi(tag = "Stream")]
 #[post("/end", data = "<input>")]
 async fn end_stream(
     _api_key: ApiKeyAuth,
@@ -117,49 +131,60 @@ async fn end_stream(
     redis: RedisClient,
 ) -> Result<Json<EndStreamResponse>, ApiError> {
     if !redis.is_active(&input.key).await? {
-        return Err(ApiError::NotFound("No active stream".to_owned()));
+        return Err(ApiError::ActiveStreamNotFound);
     }
 
     let id = redis.end_stream(&input.key).await?;
     Ok(Json(EndStreamResponse { id }))
 }
 
-#[derive(Serialize)]
-pub struct Stream {
+/// Information about the stream
+#[derive(JsonSchema, Serialize)]
+pub struct StreamInfo {
+    /// Key of the stream in Redis
     key: String,
+    /// Number of events in the stream
     length: u64,
+    /// Expiration of the stream
     ttl: i64,
 }
 
-#[derive(Deserialize)]
+#[derive(JsonSchema, Deserialize)]
 struct StreamRequest {
     key: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(JsonSchema, Serialize, Deserialize)]
 struct CreateStreamResponse {
+    /// URL to connect to the stream
     url: String,
+    /// Bearer token to access the stream
     token: String,
 }
 
-#[derive(Deserialize)]
+#[derive(JsonSchema, Deserialize)]
 struct AddEventsRequest {
+    /// Key of the stream to write to
     key: String,
+    /// Events to add to the stream
     events: Vec<AddEvent>,
 }
 
-#[derive(Deserialize)]
+#[derive(JsonSchema, Deserialize)]
 struct AddEvent {
+    /// Name/type of the event
     event: String,
+    /// Event data
     data: String,
 }
 
-#[derive(Serialize)]
+#[derive(JsonSchema, Serialize)]
 struct AddEventsResponse {
+    /// IDs of the added events
     ids: Vec<String>,
 }
 
-#[derive(Serialize)]
+#[derive(JsonSchema, Serialize)]
 struct EndStreamResponse {
     /// ID of the ending event
     id: String,

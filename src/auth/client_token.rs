@@ -4,6 +4,7 @@ use rocket::{
     request::{FromRequest, Outcome},
     Request,
 };
+use rocket_okapi::request::OpenApiFromRequest;
 use time::{Duration, UtcDateTime};
 
 use crate::{
@@ -64,4 +65,32 @@ pub fn verify_client_token(token: &str, key: &str) -> Result<bool, ApiError> {
             (expiration > UtcDateTime::now()).then_some(true)
         })
         .ok_or_else(|| ApiError::Authentication("Invalid or expired token".to_owned()))
+}
+
+/// OpenAPI docs for the client token
+impl<'r> OpenApiFromRequest<'r> for ClientTokenAuth {
+    fn from_request_input(
+        _gen: &mut rocket_okapi::r#gen::OpenApiGenerator,
+        _name: String,
+        _required: bool,
+    ) -> rocket_okapi::Result<rocket_okapi::request::RequestHeaderInput> {
+        use rocket_okapi::{okapi::openapi3, request::RequestHeaderInput};
+
+        let security_scheme = openapi3::SecurityScheme {
+            description: Some("Provide client token as a Bearer token.".to_owned()),
+            data: openapi3::SecuritySchemeData::Http {
+                scheme: "bearer".to_owned(),
+                bearer_format: Some("bearer".to_owned()),
+            },
+            extensions: openapi3::Object::default(),
+        };
+        let mut security_req = openapi3::SecurityRequirement::new();
+        security_req.insert("Client Token".to_owned(), Vec::new());
+
+        Ok(RequestHeaderInput::Security(
+            "Client Token".to_owned(),
+            security_scheme,
+            security_req,
+        ))
+    }
 }

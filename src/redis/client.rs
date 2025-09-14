@@ -5,11 +5,13 @@ use rocket::{
     request::{FromRequest, Outcome},
     Request,
 };
+use rocket_okapi::OpenApiFromRequest;
 
 use crate::redis::{constants::*, util::*};
 
 /// Request guard to retrieve a Redis client from the static pool. This should
 /// not be used for long-running or blocking requests (use the `RedisReader` instead).
+#[derive(OpenApiFromRequest)]
 pub struct RedisClient {
     client: Client,
 }

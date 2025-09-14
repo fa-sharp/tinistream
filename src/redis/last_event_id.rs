@@ -4,9 +4,10 @@ use rocket::{
     request::{FromRequest, Outcome},
     Request,
 };
+use rocket_okapi::OpenApiFromRequest;
 
 /// Request guard to extract the `Last-Event-ID` header from the request
-// #[derive(OpenApiFromRequest)]
+#[derive(OpenApiFromRequest)]
 pub struct LastEventIdHeader(String);
 
 impl std::ops::Deref for LastEventIdHeader {

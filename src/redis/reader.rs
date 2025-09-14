@@ -7,6 +7,7 @@ use rocket::{
     response::stream::Event as SseEvent,
     Request,
 };
+use rocket_okapi::OpenApiFromRequest;
 
 use crate::{
     errors::ApiError,
@@ -19,6 +20,7 @@ use crate::{
 
 /// Request guard that retrieves a stream reader with an exclusive lock on a Redis connection, for
 /// long-running read operations (e.g. for streaming SSE events from Redis to clients)
+#[derive(OpenApiFromRequest)]
 pub struct RedisReader {
     client: deadpool::managed::Object<ExclusiveClientManager>,
 }

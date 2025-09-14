@@ -1,5 +1,5 @@
-use redis_sse_streamer::build_rocket;
 use rocket::launch;
+use tinistreamer::build_rocket;
 
 #[launch]
 fn rocket() -> _ {

@@ -3,14 +3,17 @@ pub mod auth;
 pub mod config;
 pub mod crypto;
 pub mod errors;
+pub mod openapi;
 pub mod redis;
 
-use rocket::{fairing::AdHoc, get, routes};
+use rocket::{fairing::AdHoc, get};
+use rocket_okapi::{mount_endpoints_and_merged_docs, openapi_get_routes_spec};
 
 use crate::{
     config::{get_config_provider, AppConfig},
     crypto::setup_encryption,
     errors::get_catchers,
+    openapi::get_openapi_routes,
     redis::setup_redis,
 };
 
@@ -21,16 +24,21 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(setup_redis())
         .attach(setup_encryption())
         .register("/", get_catchers())
-        .mount("/", routes![health]);
+        .mount("/api/docs", get_openapi_routes());
 
-    // Mount API routes - routes will be added here by the generate command
-    rocket = rocket.mount("/api/client", api::client_routes());
-    rocket = rocket.mount("/api/stream", api::stream_routes());
+    let openapi_settings = rocket_okapi::settings::OpenApiSettings::default();
+    mount_endpoints_and_merged_docs! {
+        rocket, "/api", openapi_settings,
+        "/" => openapi_get_routes_spec![health],
+        "/client" => api::client_routes(),
+        "/stream" => api::stream_routes()
+    };
 
     rocket
 }
 
-/// Health check endpoint
+/// # Health check
+#[rocket_okapi::openapi]
 #[get("/health")]
 fn health() -> &'static str {
     "OK"
