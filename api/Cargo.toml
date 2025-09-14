@@ -29,3 +29,7 @@ tokio = { version = "1.45", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 urlencoding = "2.1"
+
+[dev-dependencies]
+reqwest = { version = "0.12" }
+tinistreamer-client = { path = "../clients/rust" }

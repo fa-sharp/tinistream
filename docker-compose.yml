@@ -9,7 +9,7 @@ services:
 
   streamer:
     build:
-      context: api
+      context: .
     ports:
       - "8080:8080"
     environment:

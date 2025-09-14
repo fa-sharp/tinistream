@@ -5,8 +5,11 @@ ARG DEBIAN_VERSION=bookworm
 FROM rust:${RUST_VERSION}-slim-${DEBIAN_VERSION} AS build
 WORKDIR /app
 
-COPY ./src src
 COPY ./Cargo.toml ./Cargo.lock ./
+COPY ./api/Cargo.toml api/Cargo.toml
+COPY ./api/src api/src
+COPY ./clients/rust/Cargo.toml clients/rust/Cargo.toml
+COPY ./clients/rust/src clients/rust/src
 
 ARG pkg=tinistreamer
 
@@ -15,7 +18,7 @@ RUN --mount=type=cache,id=rust_target,target=/app/target \
     --mount=type=cache,id=cargo_registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=cargo_git,target=/usr/local/cargo/git \
     set -eux; \
-    cargo build --release; \
+    cargo build --package $pkg --release; \
     objcopy --compress-debug-sections target/release/$pkg ./run-server
 
 
