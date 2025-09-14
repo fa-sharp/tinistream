@@ -1,4 +1,4 @@
-use fred::{bytes_utils::Str, prelude::*};
+use fred::{bytes_utils::Str, prelude::StreamsInterface};
 use rocket::{
     async_stream, async_trait,
     futures::stream::Stream,
@@ -9,14 +9,7 @@ use rocket::{
 };
 use rocket_okapi::OpenApiFromRequest;
 
-use crate::{
-    errors::ApiError,
-    redis::{
-        constants::RedisEntry,
-        util::{is_end_event, stream_event_to_sse},
-        ExclusiveClientManager, ExclusiveClientPool,
-    },
-};
+use crate::{errors::ApiError, redis::*};
 
 /// Request guard that retrieves a stream reader with an exclusive lock on a Redis connection, for
 /// long-running read operations (e.g. for streaming SSE events from Redis to clients)

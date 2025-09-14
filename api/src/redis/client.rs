@@ -7,7 +7,7 @@ use rocket::{
 };
 use rocket_okapi::OpenApiFromRequest;
 
-use crate::redis::{constants::*, util::*};
+use crate::redis::{constants::*, util::*, StaticPool};
 
 /// Request guard to retrieve a Redis client from the static pool. This should
 /// not be used for long-running or blocking requests (use the `RedisReader` instead).
@@ -21,7 +21,7 @@ impl<'r> FromRequest<'r> for RedisClient {
     type Error = String;
 
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        let pool = req.rocket().state::<Pool>().expect("should be attached");
+        let pool = req.rocket().state::<StaticPool>().expect("should exist");
         Outcome::Success(RedisClient {
             client: pool.next().clone(),
         })
