@@ -1,14 +1,6 @@
-# rs-stream
+# tinistreamer
 
-A Rocket web application generated with rocket-cli.
-
-## Features
-
-- 🚀 **Rocket** - Fast, secure, and flexible web framework
-- 📦 **Redis** - High-performance caching and sessions
-- 🔐 **Authentication** - Secure user authentication system
-- 📝 **Structured Logging** - Comprehensive application logging
-- ⚡ **Async/Await** - Modern asynchronous Rust
+A streaming microservice built with Rust, powered by Redis streams.
 
 ## Getting Started
 
@@ -44,27 +36,15 @@ The server will start at `http://localhost:8000`
 
 ```
 src/
-├── main.rs          # Application entry point
-├── lib.rs           # Application builder and routing
-├── config.rs        # Configuration management
-├── errors.rs        # Error handling
-├── redis.rs        # Redis connection and setup
-├── auth/           # Authentication modules
-└── api/            # API route handlers
-```
-
-### Adding New Routes
-
-Generate a new API route:
-```bash
-rocket-cli generate route users --crud
-```
-
-### Adding Models
-
-Generate a new database model:
-```bash
-rocket-cli generate model User name:String email:String
+├── /api            # API route handlers
+├── /auth           # Authentication and authorization
+├── config.rs       # Defining and loading config variables
+├── crypto.rs       # Encryption and decryption utilities
+├── errors.rs       # Error types and handling
+├── lib.rs          # Building the Rocket server and mounting routes
+├── main.rs         # Application entry point
+├── openapi.rs      # Building the OpenAPI spec
+└── redis.rs        # Redis setup and utilities
 ```
 
 ## Deployment
@@ -73,8 +53,8 @@ rocket-cli generate model User name:String email:String
 
 Build and run with Docker:
 ```bash
-docker build -t test-redis .
-docker run -p 8000:8000 test-redis
+docker build -t tinistreamer .
+docker run -p 8000:8000 tinistreamer
 ```
 
 ### Configuration
@@ -83,3 +63,6 @@ Configuration is handled through environment variables with the prefix `STREAMER
 - `STREAMER_REDIS_URL` - Redis connection string
 - `STREAMER_REDIS_POOL` - Redis connection pool size
 - `STREAMER_SECRET_KEY` - Secret key for encryption
+- ..etc..
+
+See [src/config.rs](src/config.rs) for all configuration options.

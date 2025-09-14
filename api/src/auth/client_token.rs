@@ -85,10 +85,10 @@ impl<'r> OpenApiFromRequest<'r> for ClientTokenAuth {
             extensions: openapi3::Object::default(),
         };
         let mut security_req = openapi3::SecurityRequirement::new();
-        security_req.insert("Client Token".to_owned(), Vec::new());
+        security_req.insert("ClientToken".to_owned(), Vec::new());
 
         Ok(RequestHeaderInput::Security(
-            "Client Token".to_owned(),
+            "ClientToken".to_owned(),
             security_scheme,
             security_req,
         ))

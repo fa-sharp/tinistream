@@ -47,10 +47,10 @@ impl<'r> OpenApiFromRequest<'r> for ApiKeyAuth {
             extensions: openapi3::Object::default(),
         };
         let mut security_req = openapi3::SecurityRequirement::new();
-        security_req.insert("API Key".to_owned(), Vec::new());
+        security_req.insert("ApiKey".to_owned(), Vec::new());
 
         Ok(RequestHeaderInput::Security(
-            "API Key".to_owned(),
+            "ApiKey".to_owned(),
             security_scheme,
             security_req,
         ))
