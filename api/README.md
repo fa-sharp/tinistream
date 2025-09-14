@@ -21,7 +21,7 @@ A Rocket web application generated with rocket-cli.
 
 1. **Clone and navigate to the project:**
    ```bash
-   cd test-redis
+   cd api
    ```
 
 2. **Environment setup:**
@@ -79,6 +79,7 @@ docker run -p 8000:8000 test-redis
 
 ### Configuration
 
-Configuration is handled through environment variables with the prefix `RS_STREAM_`:
-- `RS_STREAM_REDIS_URL` - Redis connection string
-- `RS_STREAM_SECRET_KEY` - Secret key for encryption
+Configuration is handled through environment variables with the prefix `STREAMER_`:
+- `STREAMER_REDIS_URL` - Redis connection string
+- `STREAMER_REDIS_POOL` - Redis connection pool size
+- `STREAMER_SECRET_KEY` - Secret key for encryption

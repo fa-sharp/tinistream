@@ -7,16 +7,18 @@ services:
     volumes:
       - redis_data:/data
 
-  # streamer:
-  #   build:
-  #     context: .
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     RUST_LOG: info
-  #   env_file: server/.env
-  #   depends_on:
-  #     - redis
+  streamer:
+    build:
+      context: api
+    ports:
+      - "8080:8080"
+    environment:
+      RUST_LOG: info
+      STREAMER_SERVER_ADDRESS: http://localhost:8080
+      STREAMER_REDIS_URL: redis://redis:6379
+    env_file: api/.env
+    depends_on:
+      - redis
 
 volumes:
   redis_data:

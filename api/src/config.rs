@@ -46,5 +46,5 @@ pub fn get_config_provider() -> Figment {
 
     Figment::from(rocket::Config::default())
         .merge(Toml::file("Rocket.toml").nested())
-        .merge(Env::prefixed("RS_STREAM_").global())
+        .merge(Env::prefixed("STREAMER_").global())
 }

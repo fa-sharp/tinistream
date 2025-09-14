@@ -27,7 +27,7 @@ pub fn get_routes() -> (Vec<Route>, OpenApi) {
 /// List all active streams
 ///
 #[openapi(tag = "Stream")]
-#[get("/<pattern>")]
+#[get("/?<pattern>")]
 async fn list_streams(
     _api_key: ApiKeyAuth,
     pattern: Option<&str>,
