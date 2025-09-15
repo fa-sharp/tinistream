@@ -1,12 +1,11 @@
-use std::pin::Pin;
-
 use rocket::{
     async_trait,
     data::{FromData, Outcome},
+    futures::stream::BoxStream,
     Request,
 };
 use rocket_okapi::request::OpenApiFromData;
-use tokio_stream::{Stream, StreamExt};
+use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, LinesCodec, LinesCodecError};
 
 use crate::api::stream::AddEvent;
@@ -15,7 +14,7 @@ const MAX_STREAM_SIZE: usize = 1 * 1024 * 1024; // 1 MB
 
 /// Data guard for JSON streams
 pub struct JsonStream<'r> {
-    pub stream: Pin<Box<dyn Stream<Item = Result<AddEvent, LinesCodecError>> + Send + 'r>>,
+    pub stream: BoxStream<'r, Result<AddEvent, LinesCodecError>>,
 }
 
 #[async_trait]
