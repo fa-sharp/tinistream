@@ -88,27 +88,30 @@ pub fn setup_redis() -> AdHoc {
             }
         });
 
+        // Create the shutdown fairing
+        let shutdown = AdHoc::on_shutdown("Shutdown Redis", |rocket| {
+            Box::pin(async {
+                if let Some(pool) = rocket.state::<StaticPool>() {
+                    rocket::info!("Shutting down static Redis pool");
+                    if let Err(err) = pool.quit().await {
+                        rocket::warn!("Failed to shutdown static Redis pool: {}", err);
+                    }
+                }
+                if let Some(exclusive_pool) = rocket.state::<ExclusiveClientPool>() {
+                    rocket::info!("Shutting down exclusive Redis pool");
+                    for client in exclusive_pool.manager().clients.lock().await.iter() {
+                        if let Err(err) = client.quit().await {
+                            rocket::warn!("Failed to shutdown Redis client: {}", err);
+                        }
+                    }
+                }
+            })
+        });
+
         rocket
             .manage(static_pool)
             .manage(exclusive_pool)
-            .attach(AdHoc::on_shutdown("Shutdown Redis pools", |rocket| {
-                Box::pin(async {
-                    if let Some(pool) = rocket.state::<StaticPool>() {
-                        rocket::info!("Shutting down static Redis pool");
-                        if let Err(err) = pool.quit().await {
-                            rocket::warn!("Failed to shutdown static Redis pool: {}", err);
-                        }
-                    }
-                    if let Some(exclusive_pool) = rocket.state::<ExclusiveClientPool>() {
-                        rocket::info!("Shutting down exclusive Redis pool");
-                        for client in exclusive_pool.manager().clients.lock().await.iter() {
-                            if let Err(err) = client.quit().await {
-                                rocket::warn!("Failed to shutdown Redis client: {}", err);
-                            }
-                        }
-                    }
-                })
-            }))
+            .attach(shutdown)
     })
 }
 

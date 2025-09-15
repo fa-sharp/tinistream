@@ -9,7 +9,7 @@ async fn stream() {
         .default_headers(api_key_header)
         .build()
         .unwrap();
-    let client = Client::new_with_client("http://localhost:8080/api", http_client);
+    let client = Client::new_with_client("http://localhost:8080", http_client);
     let key = "test_key";
 
     // Create stream
@@ -20,7 +20,7 @@ async fn stream() {
         .await
         .unwrap();
     assert!(res.status().is_success());
-    assert_eq!(res.url, "http://localhost:8080/api/client/sse?key=test_key");
+    assert_eq!(res.url, "http://localhost:8080/client/sse?key=test_key");
 
     // List streams
     let res = client.list_streams().pattern(key).send().await.unwrap();

@@ -9,7 +9,7 @@ pub fn get_openapi_routes() -> impl Into<Vec<rocket::Route>> {
         title: Some(String::from("RsStreamer API Documentation")),
         general: GeneralConfig {
             heading_text: String::from("RsStreamer API"),
-            spec_urls: vec![UrlObject::new("OpenAPI Schema", "/api/openapi.json")],
+            spec_urls: vec![UrlObject::new("OpenAPI Schema", "/openapi.json")],
             ..Default::default()
         },
         layout: LayoutConfig {

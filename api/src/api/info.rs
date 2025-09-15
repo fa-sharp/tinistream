@@ -27,8 +27,10 @@ struct InfoResponse {
 struct RedisStats {
     /// Number of static connections
     r#static: usize,
-    /// Number of current streaming connections
+    /// Number of streaming connections
     streaming: usize,
+    /// Number of in-use streaming connections
+    streaming_in_use: usize,
     /// Number of available streaming connections
     streaming_available: usize,
     /// Maximum number of streaming connections
@@ -48,8 +50,9 @@ async fn get_info(
     let redis_stats = RedisStats {
         r#static: app_config.redis_pool.unwrap_or(4),
         streaming: redis_status.size,
-        streaming_max: redis_status.max_size,
+        streaming_in_use: redis_status.size - redis_status.available,
         streaming_available: redis_status.available,
+        streaming_max: redis_status.max_size,
     };
 
     Json(InfoResponse {
