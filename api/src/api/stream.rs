@@ -52,7 +52,7 @@ async fn create_stream(
     redis: RedisClient,
     crypto: &State<Crypto>,
     config: &State<AppConfig>,
-) -> Result<Json<CreateStreamResponse>, ApiError> {
+) -> Result<Json<StreamAccessResponse>, ApiError> {
     if redis.is_active(&input.key).await? {
         return Err(ApiError::ExistingStream);
     }
@@ -62,7 +62,7 @@ async fn create_stream(
     let plaintext_token = create_client_token(&input.key, 10.minutes());
     let token = crypto.encrypt_base64(&plaintext_token)?;
 
-    Ok(Json(CreateStreamResponse { url, token }))
+    Ok(Json(StreamAccessResponse { url, token }))
 }
 
 /// # Create stream token
@@ -74,12 +74,12 @@ async fn create_token(
     input: Json<StreamRequest>,
     crypto: &State<Crypto>,
     config: &State<AppConfig>,
-) -> Result<Json<CreateStreamResponse>, ApiError> {
+) -> Result<Json<StreamAccessResponse>, ApiError> {
     let url = stream_sse_url(&input.key, &config.server_address);
     let plaintext_token = create_client_token(&input.key, 10.minutes());
     let token = crypto.encrypt_base64(&plaintext_token)?;
 
-    Ok(Json(CreateStreamResponse { url, token }))
+    Ok(Json(StreamAccessResponse { url, token }))
 }
 
 /// # Add events
@@ -155,7 +155,7 @@ struct StreamRequest {
 }
 
 #[derive(JsonSchema, Serialize, Deserialize)]
-struct CreateStreamResponse {
+struct StreamAccessResponse {
     /// URL to connect to the stream
     url: String,
     /// Bearer token to access the stream
