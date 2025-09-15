@@ -25,10 +25,15 @@ impl<'r> FromRequest<'r> for RedisReader {
         let pool = req.rocket().state::<ExclusiveClientPool>().expect("exists");
         match pool.get().await {
             Ok(client) => Outcome::Success(RedisReader::new(client)),
-            Err(err) => {
-                rocket::error!("Failed to retrieve Redis client from pool: {err}");
-                Outcome::Error((Status::InternalServerError, ()))
-            }
+            Err(err) => match err {
+                deadpool::managed::PoolError::Timeout(_) => {
+                    Outcome::Error((Status::TooManyRequests, ()))
+                }
+                _ => {
+                    rocket::error!("Failed to retrieve Redis client from pool: {err}");
+                    Outcome::Error((Status::InternalServerError, ()))
+                }
+            },
         }
     }
 }

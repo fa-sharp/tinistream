@@ -6,8 +6,8 @@ pub mod errors;
 pub mod openapi;
 pub mod redis;
 
-use rocket::{fairing::AdHoc, get};
-use rocket_okapi::{mount_endpoints_and_merged_docs, openapi_get_routes_spec};
+use rocket::fairing::AdHoc;
+use rocket_okapi::mount_endpoints_and_merged_docs;
 
 use crate::{
     config::{get_config_provider, AppConfig},
@@ -28,18 +28,11 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
 
     let openapi_settings = rocket_okapi::settings::OpenApiSettings::default();
     mount_endpoints_and_merged_docs! {
-        rocket, "/api", openapi_settings,
-        "/" => openapi_get_routes_spec![health],
-        "/client" => api::client_routes(),
-        "/stream" => api::stream_routes()
+        rocket, "/", openapi_settings,
+        "/api" => api::info_routes(),
+        "/api/client" => api::client_routes(),
+        "/api/stream" => api::stream_routes()
     };
 
     rocket
-}
-
-/// # Health check
-#[rocket_okapi::openapi]
-#[get("/health")]
-fn health() -> &'static str {
-    "OK"
 }
