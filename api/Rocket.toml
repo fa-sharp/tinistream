@@ -1,0 +1,10 @@
+[default]
+address = "127.0.0.1"
+port = 8000
+log_level = "normal"  # can set to "debug" for more logs
+
+[debug]
+server_address = "http://localhost:8000"
+redis_url = "redis://localhost:6379"
+redis_pool = 2
+ttl = 120

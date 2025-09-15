@@ -1,4 +1,4 @@
-use rocket::{get, post, serde::json::Json, Route, State};
+use rocket::{futures::StreamExt, get, post, serde::json::Json, Route, State};
 use rocket_okapi::{okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -8,6 +8,7 @@ use crate::{
     auth::{create_client_token, ApiKeyAuth},
     config::AppConfig,
     crypto::Crypto,
+    data::JsonStream,
     errors::ApiError,
     redis::{stream_sse_url, RedisClient, DATA_KEY, EVENT_KEY},
 };
@@ -18,6 +19,7 @@ pub fn get_routes() -> (Vec<Route>, OpenApi) {
         create_stream,
         create_token,
         add_events,
+        add_events_json_stream,
         cancel_stream,
         end_stream
     ]
@@ -99,11 +101,50 @@ async fn add_events(
     let entries = input
         .events
         .iter()
-        .map(|ev| vec![(EVENT_KEY, ev.event.as_str()), (DATA_KEY, ev.data.as_str())])
+        .map(|ev| {
+            let mut entry = vec![(EVENT_KEY, ev.event.as_str())];
+            if let Some(data) = ev.data.as_deref() {
+                entry.push((DATA_KEY, data));
+            }
+            entry
+        })
         .collect::<Vec<_>>();
     let ids = redis.write_events(&input.key, entries, config.ttl).await?;
 
     Ok(Json(AddEventsResponse { ids }))
+}
+
+/// # Add events JSON stream
+/// Add events to a stream via a JSON stream
+#[openapi(tag = "Stream")]
+#[post("/add/json-stream?<key>", data = "<data>")]
+async fn add_events_json_stream(
+    _api_key: ApiKeyAuth,
+    key: &str,
+    mut data: JsonStream<'_>,
+    redis: RedisClient,
+    config: &State<AppConfig>,
+) -> Result<Json<AddEventsStreamResponse>, ApiError> {
+    if !redis.is_active(key).await? {
+        return Err(ApiError::ActiveStreamNotFound);
+    }
+
+    let mut ids: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+
+    while let Some(res) = data.stream.next().await {
+        let event = res?;
+        let mut entry = vec![(EVENT_KEY, event.event.as_str())];
+        if let Some(data) = event.data.as_deref() {
+            entry.push((DATA_KEY, data));
+        }
+        match redis.write_event(key, entry, config.ttl).await {
+            Ok(id) => ids.push(id),
+            Err(err) => errors.push(err.to_string()),
+        }
+    }
+
+    Ok(Json(AddEventsStreamResponse { ids, errors }))
 }
 
 /// # Cancel stream
@@ -170,18 +211,26 @@ struct AddEventsRequest {
     events: Vec<AddEvent>,
 }
 
-#[derive(JsonSchema, Deserialize)]
-struct AddEvent {
+#[derive(JsonSchema, Serialize, Deserialize)]
+pub struct AddEvent {
     /// Name/type of the event
-    event: String,
+    pub event: String,
     /// Event data
-    data: String,
+    pub data: Option<String>,
 }
 
 #[derive(JsonSchema, Serialize)]
 struct AddEventsResponse {
     /// IDs of the added events
     ids: Vec<String>,
+}
+
+#[derive(JsonSchema, Serialize)]
+struct AddEventsStreamResponse {
+    /// IDs of the added events
+    ids: Vec<String>,
+    /// Errors that occurred while adding events
+    errors: Vec<String>,
 }
 
 #[derive(JsonSchema, Serialize)]

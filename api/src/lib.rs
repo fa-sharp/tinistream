@@ -2,6 +2,7 @@ pub mod api;
 pub mod auth;
 pub mod config;
 pub mod crypto;
+pub mod data;
 pub mod errors;
 pub mod openapi;
 pub mod redis;

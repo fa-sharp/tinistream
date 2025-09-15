@@ -42,6 +42,23 @@ impl RedisClient {
         Ok(id)
     }
 
+    /// Writes a single event to the stream and updates the stream's expiration.
+    /// Returns the ID of the written event.
+    pub async fn write_event(
+        &self,
+        key: &str,
+        event: Vec<(&str, &str)>,
+        ttl: u32,
+    ) -> FredResult<String> {
+        let trx = self.client.multi(); // use a transaction to ensure atomicity
+        let _: () = trx.xadd(key, true, XADD_CAP, "*", event).await?;
+        let _: () = trx.expire(key, ttl.into(), None).await?;
+        let mut responses: Vec<String> = trx.exec(true).await?;
+        responses.pop(); // Remove expiration response
+
+        Ok(responses.pop().unwrap())
+    }
+
     /// Write multiple events to the stream and update the stream's expiration.
     /// Returns the IDs of the written events.
     pub async fn write_events(

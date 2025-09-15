@@ -30,6 +30,8 @@ pub enum ApiError {
     Internal(String),
     #[error(transparent)]
     Crypto(#[from] CryptoError),
+    #[error(transparent)]
+    Decode(#[from] tokio_util::codec::LinesCodecError),
 }
 
 /// The response type used by Rocket to serialize and send an error to the client
@@ -91,6 +93,9 @@ impl From<ApiError> for ApiErrorResponse {
                 "no-active-stream",
             )),
             ApiError::NotFound(error) => Self::NotFound(ErrorMessage::new(error, "not-found")),
+            ApiError::Decode(error) => {
+                Self::BadRequest(ErrorMessage::new(error.to_string(), "decode-error"))
+            }
             ApiError::Redis(_) | ApiError::Internal(_) => Self::Server(ErrorMessage::new(
                 "Internal server error".to_string(),
                 "server-error",

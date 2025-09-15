@@ -2317,7 +2317,7 @@ dependencies = [
 
 [[package]]
 name = "tinistreamer"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "aes-gcm",
  "base64",
@@ -2326,6 +2326,7 @@ dependencies = [
  "fred",
  "hex",
  "itertools",
+ "rand",
  "reqwest",
  "rocket",
  "rocket_okapi",
@@ -2336,6 +2337,8 @@ dependencies = [
  "time",
  "tinistreamer-client",
  "tokio",
+ "tokio-stream",
+ "tokio-util",
  "tracing",
  "tracing-subscriber",
  "urlencoding",
@@ -2343,7 +2346,7 @@ dependencies = [
 
 [[package]]
 name = "tinistreamer-client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bytes",
  "futures-core",

@@ -43,13 +43,15 @@ pub mod types {
     ///{
     ///  "type": "object",
     ///  "required": [
-    ///    "data",
     ///    "event"
     ///  ],
     ///  "properties": {
     ///    "data": {
     ///      "description": "Event data",
-    ///      "type": "string"
+    ///      "type": [
+    ///        "string",
+    ///        "null"
+    ///      ]
     ///    },
     ///    "event": {
     ///      "description": "Name/type of the event",
@@ -62,7 +64,8 @@ pub mod types {
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
     pub struct AddEvent {
         ///Event data
-        pub data: ::std::string::String,
+        #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+        pub data: ::std::option::Option<::std::string::String>,
         ///Name/type of the event
         pub event: ::std::string::String,
     }
@@ -166,7 +169,7 @@ pub mod types {
         }
     }
 
-    ///`CreateStreamResponse`
+    ///`AddEventsStreamResponse`
     ///
     /// <details><summary>JSON schema</summary>
     ///
@@ -174,38 +177,44 @@ pub mod types {
     ///{
     ///  "type": "object",
     ///  "required": [
-    ///    "token",
-    ///    "url"
+    ///    "errors",
+    ///    "ids"
     ///  ],
     ///  "properties": {
-    ///    "token": {
-    ///      "description": "Bearer token to access the stream",
-    ///      "type": "string"
+    ///    "errors": {
+    ///      "description": "Errors that occurred while adding events",
+    ///      "type": "array",
+    ///      "items": {
+    ///        "type": "string"
+    ///      }
     ///    },
-    ///    "url": {
-    ///      "description": "URL to connect to the stream",
-    ///      "type": "string"
+    ///    "ids": {
+    ///      "description": "IDs of the added events",
+    ///      "type": "array",
+    ///      "items": {
+    ///        "type": "string"
+    ///      }
     ///    }
     ///  }
     ///}
     /// ```
     /// </details>
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-    pub struct CreateStreamResponse {
-        ///Bearer token to access the stream
-        pub token: ::std::string::String,
-        ///URL to connect to the stream
-        pub url: ::std::string::String,
+    pub struct AddEventsStreamResponse {
+        ///Errors that occurred while adding events
+        pub errors: ::std::vec::Vec<::std::string::String>,
+        ///IDs of the added events
+        pub ids: ::std::vec::Vec<::std::string::String>,
     }
 
-    impl ::std::convert::From<&CreateStreamResponse> for CreateStreamResponse {
-        fn from(value: &CreateStreamResponse) -> Self {
+    impl ::std::convert::From<&AddEventsStreamResponse> for AddEventsStreamResponse {
+        fn from(value: &AddEventsStreamResponse) -> Self {
             value.clone()
         }
     }
 
-    impl CreateStreamResponse {
-        pub fn builder() -> builder::CreateStreamResponse {
+    impl AddEventsStreamResponse {
+        pub fn builder() -> builder::AddEventsStreamResponse {
             Default::default()
         }
     }
@@ -283,6 +292,171 @@ pub mod types {
 
     impl ErrorMessage {
         pub fn builder() -> builder::ErrorMessage {
+            Default::default()
+        }
+    }
+
+    ///`InfoResponse`
+    ///
+    /// <details><summary>JSON schema</summary>
+    ///
+    /// ```json
+    ///{
+    ///  "type": "object",
+    ///  "required": [
+    ///    "redis",
+    ///    "url",
+    ///    "version"
+    ///  ],
+    ///  "properties": {
+    ///    "redis": {
+    ///      "$ref": "#/components/schemas/RedisStats"
+    ///    },
+    ///    "url": {
+    ///      "type": "string"
+    ///    },
+    ///    "version": {
+    ///      "type": "string"
+    ///    }
+    ///  }
+    ///}
+    /// ```
+    /// </details>
+    #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+    pub struct InfoResponse {
+        pub redis: RedisStats,
+        pub url: ::std::string::String,
+        pub version: ::std::string::String,
+    }
+
+    impl ::std::convert::From<&InfoResponse> for InfoResponse {
+        fn from(value: &InfoResponse) -> Self {
+            value.clone()
+        }
+    }
+
+    impl InfoResponse {
+        pub fn builder() -> builder::InfoResponse {
+            Default::default()
+        }
+    }
+
+    ///`RedisStats`
+    ///
+    /// <details><summary>JSON schema</summary>
+    ///
+    /// ```json
+    ///{
+    ///  "type": "object",
+    ///  "required": [
+    ///    "static",
+    ///    "streaming",
+    ///    "streaming_available",
+    ///    "streaming_in_use",
+    ///    "streaming_max"
+    ///  ],
+    ///  "properties": {
+    ///    "static": {
+    ///      "description": "Number of static connections",
+    ///      "type": "integer",
+    ///      "format": "uint",
+    ///      "minimum": 0.0
+    ///    },
+    ///    "streaming": {
+    ///      "description": "Number of streaming connections",
+    ///      "type": "integer",
+    ///      "format": "uint",
+    ///      "minimum": 0.0
+    ///    },
+    ///    "streaming_available": {
+    ///      "description": "Number of available streaming connections",
+    ///      "type": "integer",
+    ///      "format": "uint",
+    ///      "minimum": 0.0
+    ///    },
+    ///    "streaming_in_use": {
+    ///      "description": "Number of in-use streaming connections",
+    ///      "type": "integer",
+    ///      "format": "uint",
+    ///      "minimum": 0.0
+    ///    },
+    ///    "streaming_max": {
+    ///      "description": "Maximum number of streaming connections",
+    ///      "type": "integer",
+    ///      "format": "uint",
+    ///      "minimum": 0.0
+    ///    }
+    ///  }
+    ///}
+    /// ```
+    /// </details>
+    #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+    pub struct RedisStats {
+        ///Number of static connections
+        #[serde(rename = "static")]
+        pub static_: u32,
+        ///Number of streaming connections
+        pub streaming: u32,
+        ///Number of available streaming connections
+        pub streaming_available: u32,
+        ///Number of in-use streaming connections
+        pub streaming_in_use: u32,
+        ///Maximum number of streaming connections
+        pub streaming_max: u32,
+    }
+
+    impl ::std::convert::From<&RedisStats> for RedisStats {
+        fn from(value: &RedisStats) -> Self {
+            value.clone()
+        }
+    }
+
+    impl RedisStats {
+        pub fn builder() -> builder::RedisStats {
+            Default::default()
+        }
+    }
+
+    ///`StreamAccessResponse`
+    ///
+    /// <details><summary>JSON schema</summary>
+    ///
+    /// ```json
+    ///{
+    ///  "type": "object",
+    ///  "required": [
+    ///    "token",
+    ///    "url"
+    ///  ],
+    ///  "properties": {
+    ///    "token": {
+    ///      "description": "Bearer token to access the stream",
+    ///      "type": "string"
+    ///    },
+    ///    "url": {
+    ///      "description": "URL to connect to the stream",
+    ///      "type": "string"
+    ///    }
+    ///  }
+    ///}
+    /// ```
+    /// </details>
+    #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+    pub struct StreamAccessResponse {
+        ///Bearer token to access the stream
+        pub token: ::std::string::String,
+        ///URL to connect to the stream
+        pub url: ::std::string::String,
+    }
+
+    impl ::std::convert::From<&StreamAccessResponse> for StreamAccessResponse {
+        fn from(value: &StreamAccessResponse) -> Self {
+            value.clone()
+        }
+    }
+
+    impl StreamAccessResponse {
+        pub fn builder() -> builder::StreamAccessResponse {
             Default::default()
         }
     }
@@ -381,14 +555,17 @@ pub mod types {
     pub mod builder {
         #[derive(Clone, Debug)]
         pub struct AddEvent {
-            data: ::std::result::Result<::std::string::String, ::std::string::String>,
+            data: ::std::result::Result<
+                ::std::option::Option<::std::string::String>,
+                ::std::string::String,
+            >,
             event: ::std::result::Result<::std::string::String, ::std::string::String>,
         }
 
         impl ::std::default::Default for AddEvent {
             fn default() -> Self {
                 Self {
-                    data: Err("no value supplied for data".to_string()),
+                    data: Ok(Default::default()),
                     event: Err("no value supplied for event".to_string()),
                 }
             }
@@ -397,7 +574,7 @@ pub mod types {
         impl AddEvent {
             pub fn data<T>(mut self, value: T) -> Self
             where
-                T: ::std::convert::TryInto<::std::string::String>,
+                T: ::std::convert::TryInto<::std::option::Option<::std::string::String>>,
                 T::Error: ::std::fmt::Display,
             {
                 self.data = value
@@ -542,60 +719,66 @@ pub mod types {
         }
 
         #[derive(Clone, Debug)]
-        pub struct CreateStreamResponse {
-            token: ::std::result::Result<::std::string::String, ::std::string::String>,
-            url: ::std::result::Result<::std::string::String, ::std::string::String>,
+        pub struct AddEventsStreamResponse {
+            errors: ::std::result::Result<
+                ::std::vec::Vec<::std::string::String>,
+                ::std::string::String,
+            >,
+            ids: ::std::result::Result<
+                ::std::vec::Vec<::std::string::String>,
+                ::std::string::String,
+            >,
         }
 
-        impl ::std::default::Default for CreateStreamResponse {
+        impl ::std::default::Default for AddEventsStreamResponse {
             fn default() -> Self {
                 Self {
-                    token: Err("no value supplied for token".to_string()),
-                    url: Err("no value supplied for url".to_string()),
+                    errors: Err("no value supplied for errors".to_string()),
+                    ids: Err("no value supplied for ids".to_string()),
                 }
             }
         }
 
-        impl CreateStreamResponse {
-            pub fn token<T>(mut self, value: T) -> Self
+        impl AddEventsStreamResponse {
+            pub fn errors<T>(mut self, value: T) -> Self
             where
-                T: ::std::convert::TryInto<::std::string::String>,
+                T: ::std::convert::TryInto<::std::vec::Vec<::std::string::String>>,
                 T::Error: ::std::fmt::Display,
             {
-                self.token = value
+                self.errors = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for token: {}", e));
+                    .map_err(|e| format!("error converting supplied value for errors: {}", e));
                 self
             }
-            pub fn url<T>(mut self, value: T) -> Self
+            pub fn ids<T>(mut self, value: T) -> Self
             where
-                T: ::std::convert::TryInto<::std::string::String>,
+                T: ::std::convert::TryInto<::std::vec::Vec<::std::string::String>>,
                 T::Error: ::std::fmt::Display,
             {
-                self.url = value
+                self.ids = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for url: {}", e));
+                    .map_err(|e| format!("error converting supplied value for ids: {}", e));
                 self
             }
         }
 
-        impl ::std::convert::TryFrom<CreateStreamResponse> for super::CreateStreamResponse {
+        impl ::std::convert::TryFrom<AddEventsStreamResponse> for super::AddEventsStreamResponse {
             type Error = super::error::ConversionError;
             fn try_from(
-                value: CreateStreamResponse,
+                value: AddEventsStreamResponse,
             ) -> ::std::result::Result<Self, super::error::ConversionError> {
                 Ok(Self {
-                    token: value.token?,
-                    url: value.url?,
+                    errors: value.errors?,
+                    ids: value.ids?,
                 })
             }
         }
 
-        impl ::std::convert::From<super::CreateStreamResponse> for CreateStreamResponse {
-            fn from(value: super::CreateStreamResponse) -> Self {
+        impl ::std::convert::From<super::AddEventsStreamResponse> for AddEventsStreamResponse {
+            fn from(value: super::AddEventsStreamResponse) -> Self {
                 Self {
-                    token: Ok(value.token),
-                    url: Ok(value.url),
+                    errors: Ok(value.errors),
+                    ids: Ok(value.ids),
                 }
             }
         }
@@ -696,6 +879,247 @@ pub mod types {
                 Self {
                     code: Ok(value.code),
                     message: Ok(value.message),
+                }
+            }
+        }
+
+        #[derive(Clone, Debug)]
+        pub struct InfoResponse {
+            redis: ::std::result::Result<super::RedisStats, ::std::string::String>,
+            url: ::std::result::Result<::std::string::String, ::std::string::String>,
+            version: ::std::result::Result<::std::string::String, ::std::string::String>,
+        }
+
+        impl ::std::default::Default for InfoResponse {
+            fn default() -> Self {
+                Self {
+                    redis: Err("no value supplied for redis".to_string()),
+                    url: Err("no value supplied for url".to_string()),
+                    version: Err("no value supplied for version".to_string()),
+                }
+            }
+        }
+
+        impl InfoResponse {
+            pub fn redis<T>(mut self, value: T) -> Self
+            where
+                T: ::std::convert::TryInto<super::RedisStats>,
+                T::Error: ::std::fmt::Display,
+            {
+                self.redis = value
+                    .try_into()
+                    .map_err(|e| format!("error converting supplied value for redis: {}", e));
+                self
+            }
+            pub fn url<T>(mut self, value: T) -> Self
+            where
+                T: ::std::convert::TryInto<::std::string::String>,
+                T::Error: ::std::fmt::Display,
+            {
+                self.url = value
+                    .try_into()
+                    .map_err(|e| format!("error converting supplied value for url: {}", e));
+                self
+            }
+            pub fn version<T>(mut self, value: T) -> Self
+            where
+                T: ::std::convert::TryInto<::std::string::String>,
+                T::Error: ::std::fmt::Display,
+            {
+                self.version = value
+                    .try_into()
+                    .map_err(|e| format!("error converting supplied value for version: {}", e));
+                self
+            }
+        }
+
+        impl ::std::convert::TryFrom<InfoResponse> for super::InfoResponse {
+            type Error = super::error::ConversionError;
+            fn try_from(
+                value: InfoResponse,
+            ) -> ::std::result::Result<Self, super::error::ConversionError> {
+                Ok(Self {
+                    redis: value.redis?,
+                    url: value.url?,
+                    version: value.version?,
+                })
+            }
+        }
+
+        impl ::std::convert::From<super::InfoResponse> for InfoResponse {
+            fn from(value: super::InfoResponse) -> Self {
+                Self {
+                    redis: Ok(value.redis),
+                    url: Ok(value.url),
+                    version: Ok(value.version),
+                }
+            }
+        }
+
+        #[derive(Clone, Debug)]
+        pub struct RedisStats {
+            static_: ::std::result::Result<u32, ::std::string::String>,
+            streaming: ::std::result::Result<u32, ::std::string::String>,
+            streaming_available: ::std::result::Result<u32, ::std::string::String>,
+            streaming_in_use: ::std::result::Result<u32, ::std::string::String>,
+            streaming_max: ::std::result::Result<u32, ::std::string::String>,
+        }
+
+        impl ::std::default::Default for RedisStats {
+            fn default() -> Self {
+                Self {
+                    static_: Err("no value supplied for static_".to_string()),
+                    streaming: Err("no value supplied for streaming".to_string()),
+                    streaming_available: Err(
+                        "no value supplied for streaming_available".to_string()
+                    ),
+                    streaming_in_use: Err("no value supplied for streaming_in_use".to_string()),
+                    streaming_max: Err("no value supplied for streaming_max".to_string()),
+                }
+            }
+        }
+
+        impl RedisStats {
+            pub fn static_<T>(mut self, value: T) -> Self
+            where
+                T: ::std::convert::TryInto<u32>,
+                T::Error: ::std::fmt::Display,
+            {
+                self.static_ = value
+                    .try_into()
+                    .map_err(|e| format!("error converting supplied value for static_: {}", e));
+                self
+            }
+            pub fn streaming<T>(mut self, value: T) -> Self
+            where
+                T: ::std::convert::TryInto<u32>,
+                T::Error: ::std::fmt::Display,
+            {
+                self.streaming = value
+                    .try_into()
+                    .map_err(|e| format!("error converting supplied value for streaming: {}", e));
+                self
+            }
+            pub fn streaming_available<T>(mut self, value: T) -> Self
+            where
+                T: ::std::convert::TryInto<u32>,
+                T::Error: ::std::fmt::Display,
+            {
+                self.streaming_available = value.try_into().map_err(|e| {
+                    format!(
+                        "error converting supplied value for streaming_available: {}",
+                        e
+                    )
+                });
+                self
+            }
+            pub fn streaming_in_use<T>(mut self, value: T) -> Self
+            where
+                T: ::std::convert::TryInto<u32>,
+                T::Error: ::std::fmt::Display,
+            {
+                self.streaming_in_use = value.try_into().map_err(|e| {
+                    format!(
+                        "error converting supplied value for streaming_in_use: {}",
+                        e
+                    )
+                });
+                self
+            }
+            pub fn streaming_max<T>(mut self, value: T) -> Self
+            where
+                T: ::std::convert::TryInto<u32>,
+                T::Error: ::std::fmt::Display,
+            {
+                self.streaming_max = value.try_into().map_err(|e| {
+                    format!("error converting supplied value for streaming_max: {}", e)
+                });
+                self
+            }
+        }
+
+        impl ::std::convert::TryFrom<RedisStats> for super::RedisStats {
+            type Error = super::error::ConversionError;
+            fn try_from(
+                value: RedisStats,
+            ) -> ::std::result::Result<Self, super::error::ConversionError> {
+                Ok(Self {
+                    static_: value.static_?,
+                    streaming: value.streaming?,
+                    streaming_available: value.streaming_available?,
+                    streaming_in_use: value.streaming_in_use?,
+                    streaming_max: value.streaming_max?,
+                })
+            }
+        }
+
+        impl ::std::convert::From<super::RedisStats> for RedisStats {
+            fn from(value: super::RedisStats) -> Self {
+                Self {
+                    static_: Ok(value.static_),
+                    streaming: Ok(value.streaming),
+                    streaming_available: Ok(value.streaming_available),
+                    streaming_in_use: Ok(value.streaming_in_use),
+                    streaming_max: Ok(value.streaming_max),
+                }
+            }
+        }
+
+        #[derive(Clone, Debug)]
+        pub struct StreamAccessResponse {
+            token: ::std::result::Result<::std::string::String, ::std::string::String>,
+            url: ::std::result::Result<::std::string::String, ::std::string::String>,
+        }
+
+        impl ::std::default::Default for StreamAccessResponse {
+            fn default() -> Self {
+                Self {
+                    token: Err("no value supplied for token".to_string()),
+                    url: Err("no value supplied for url".to_string()),
+                }
+            }
+        }
+
+        impl StreamAccessResponse {
+            pub fn token<T>(mut self, value: T) -> Self
+            where
+                T: ::std::convert::TryInto<::std::string::String>,
+                T::Error: ::std::fmt::Display,
+            {
+                self.token = value
+                    .try_into()
+                    .map_err(|e| format!("error converting supplied value for token: {}", e));
+                self
+            }
+            pub fn url<T>(mut self, value: T) -> Self
+            where
+                T: ::std::convert::TryInto<::std::string::String>,
+                T::Error: ::std::fmt::Display,
+            {
+                self.url = value
+                    .try_into()
+                    .map_err(|e| format!("error converting supplied value for url: {}", e));
+                self
+            }
+        }
+
+        impl ::std::convert::TryFrom<StreamAccessResponse> for super::StreamAccessResponse {
+            type Error = super::error::ConversionError;
+            fn try_from(
+                value: StreamAccessResponse,
+            ) -> ::std::result::Result<Self, super::error::ConversionError> {
+                Ok(Self {
+                    token: value.token?,
+                    url: value.url?,
+                })
+            }
+        }
+
+        impl ::std::convert::From<super::StreamAccessResponse> for StreamAccessResponse {
+            fn from(value: super::StreamAccessResponse) -> Self {
+                Self {
+                    token: Ok(value.token),
+                    url: Ok(value.url),
                 }
             }
         }
@@ -877,27 +1301,12 @@ impl ClientInfo<()> for Client {
 }
 
 impl ClientHooks<()> for &Client {}
-impl Client {
-    ///Health check
-    ///
-    ///Sends a `GET` request to `/health`
-    ///
-    ///```ignore
-    /// let response = client.health()
-    ///    .send()
-    ///    .await;
-    /// ```
-    pub fn health(&self) -> builder::Health<'_> {
-        builder::Health::new(self)
-    }
-}
-
 pub trait ClientClientExt {
     ///Connect SSE stream
     ///
     ///Connect to a stream and receive SSE events
     ///
-    ///Sends a `GET` request to `/client/sse`
+    ///Sends a `GET` request to `/api/client/sse`
     ///
     ///```ignore
     /// let response = client.connect_sse()
@@ -914,12 +1323,47 @@ impl ClientClientExt for Client {
     }
 }
 
+pub trait ClientInfoExt {
+    ///Health check
+    ///
+    ///Sends a `GET` request to `/api/health`
+    ///
+    ///```ignore
+    /// let response = client.health()
+    ///    .send()
+    ///    .await;
+    /// ```
+    fn health(&self) -> builder::Health<'_>;
+    ///Get info
+    ///
+    ///Get information about the server
+    ///
+    ///Sends a `GET` request to `/api/info`
+    ///
+    ///```ignore
+    /// let response = client.get_info()
+    ///    .send()
+    ///    .await;
+    /// ```
+    fn get_info(&self) -> builder::GetInfo<'_>;
+}
+
+impl ClientInfoExt for Client {
+    fn health(&self) -> builder::Health<'_> {
+        builder::Health::new(self)
+    }
+
+    fn get_info(&self) -> builder::GetInfo<'_> {
+        builder::GetInfo::new(self)
+    }
+}
+
 pub trait ClientStreamExt {
     ///List streams
     ///
     ///List all active streams
     ///
-    ///Sends a `GET` request to `/stream/`
+    ///Sends a `GET` request to `/api/stream/`
     ///
     ///```ignore
     /// let response = client.list_streams()
@@ -933,7 +1377,7 @@ pub trait ClientStreamExt {
     ///Create a new stream, and get a client URL and token to connect to the
     /// stream
     ///
-    ///Sends a `POST` request to `/stream/`
+    ///Sends a `POST` request to `/api/stream/`
     ///
     ///```ignore
     /// let response = client.create_stream()
@@ -946,7 +1390,7 @@ pub trait ClientStreamExt {
     ///
     ///Create a new client token to connect to a stream
     ///
-    ///Sends a `POST` request to `/stream/token`
+    ///Sends a `POST` request to `/api/stream/token`
     ///
     ///```ignore
     /// let response = client.create_token()
@@ -959,7 +1403,7 @@ pub trait ClientStreamExt {
     ///
     ///Add events to a stream
     ///
-    ///Sends a `POST` request to `/stream/add`
+    ///Sends a `POST` request to `/api/stream/add`
     ///
     ///```ignore
     /// let response = client.add_events()
@@ -968,9 +1412,26 @@ pub trait ClientStreamExt {
     ///    .await;
     /// ```
     fn add_events(&self) -> builder::AddEvents<'_>;
+    ///Add events JSON stream
+    ///
+    ///Add events to a stream via a JSON stream
+    ///
+    ///Sends a `POST` request to `/api/stream/add/json-stream`
+    ///
+    ///Arguments:
+    /// - `key`
+    /// - `body`: JSON stream (stream of JSON strings separated by newlines)
+    ///```ignore
+    /// let response = client.add_events_json_stream()
+    ///    .key(key)
+    ///    .body(body)
+    ///    .send()
+    ///    .await;
+    /// ```
+    fn add_events_json_stream(&self) -> builder::AddEventsJsonStream<'_>;
     ///Cancel stream
     ///
-    ///Sends a `POST` request to `/stream/cancel`
+    ///Sends a `POST` request to `/api/stream/cancel`
     ///
     ///```ignore
     /// let response = client.cancel_stream()
@@ -981,7 +1442,7 @@ pub trait ClientStreamExt {
     fn cancel_stream(&self) -> builder::CancelStream<'_>;
     ///End stream
     ///
-    ///Sends a `POST` request to `/stream/end`
+    ///Sends a `POST` request to `/api/stream/end`
     ///
     ///```ignore
     /// let response = client.end_stream()
@@ -1009,6 +1470,10 @@ impl ClientStreamExt for Client {
         builder::AddEvents::new(self)
     }
 
+    fn add_events_json_stream(&self) -> builder::AddEventsJsonStream<'_> {
+        builder::AddEventsJsonStream::new(self)
+    }
+
     fn cancel_stream(&self) -> builder::CancelStream<'_> {
         builder::CancelStream::new(self)
     }
@@ -1027,9 +1492,9 @@ pub mod builder {
         encode_path, ByteStream, ClientHooks, ClientInfo, Error, OperationInfo, RequestBuilderExt,
         ResponseValue,
     };
-    ///Builder for [`Client::health`]
+    ///Builder for [`ClientInfoExt::health`]
     ///
-    ///[`Client::health`]: super::Client::health
+    ///[`ClientInfoExt::health`]: super::ClientInfoExt::health
     #[derive(Debug, Clone)]
     pub struct Health<'a> {
         client: &'a super::Client,
@@ -1040,10 +1505,10 @@ pub mod builder {
             Self { client: client }
         }
 
-        ///Sends a `GET` request to `/health`
+        ///Sends a `GET` request to `/api/health`
         pub async fn send(self) -> Result<ResponseValue<ByteStream>, Error<()>> {
             let Self { client } = self;
-            let url = format!("{}/health", client.baseurl,);
+            let url = format!("{}/api/health", client.baseurl,);
             let mut header_map = ::reqwest::header::HeaderMap::with_capacity(1usize);
             header_map.append(
                 ::reqwest::header::HeaderName::from_static("api-version"),
@@ -1060,6 +1525,52 @@ pub mod builder {
             let response = result?;
             match response.status().as_u16() {
                 200u16 => Ok(ResponseValue::stream(response)),
+                _ => Err(Error::UnexpectedResponse(response)),
+            }
+        }
+    }
+
+    ///Builder for [`ClientInfoExt::get_info`]
+    ///
+    ///[`ClientInfoExt::get_info`]: super::ClientInfoExt::get_info
+    #[derive(Debug, Clone)]
+    pub struct GetInfo<'a> {
+        client: &'a super::Client,
+    }
+
+    impl<'a> GetInfo<'a> {
+        pub fn new(client: &'a super::Client) -> Self {
+            Self { client: client }
+        }
+
+        ///Sends a `GET` request to `/api/info`
+        pub async fn send(self) -> Result<ResponseValue<types::InfoResponse>, Error<()>> {
+            let Self { client } = self;
+            let url = format!("{}/api/info", client.baseurl,);
+            let mut header_map = ::reqwest::header::HeaderMap::with_capacity(1usize);
+            header_map.append(
+                ::reqwest::header::HeaderName::from_static("api-version"),
+                ::reqwest::header::HeaderValue::from_static(super::Client::api_version()),
+            );
+            #[allow(unused_mut)]
+            let mut request = client
+                .client
+                .get(url)
+                .header(
+                    ::reqwest::header::ACCEPT,
+                    ::reqwest::header::HeaderValue::from_static("application/json"),
+                )
+                .headers(header_map)
+                .build()?;
+            let info = OperationInfo {
+                operation_id: "get_info",
+            };
+            client.pre(&mut request, &info).await?;
+            let result = client.exec(request, &info).await;
+            client.post(&result, &info).await?;
+            let response = result?;
+            match response.status().as_u16() {
+                200u16 => ResponseValue::from_response(response).await,
                 _ => Err(Error::UnexpectedResponse(response)),
             }
         }
@@ -1092,11 +1603,11 @@ pub mod builder {
             self
         }
 
-        ///Sends a `GET` request to `/client/sse`
+        ///Sends a `GET` request to `/api/client/sse`
         pub async fn send(self) -> Result<ResponseValue<ByteStream>, Error<types::ErrorMessage>> {
             let Self { client, key } = self;
             let key = key.map_err(Error::InvalidRequest)?;
-            let url = format!("{}/client/sse", client.baseurl,);
+            let url = format!("{}/api/client/sse", client.baseurl,);
             let mut header_map = ::reqwest::header::HeaderMap::with_capacity(1usize);
             header_map.append(
                 ::reqwest::header::HeaderName::from_static("api-version"),
@@ -1165,14 +1676,14 @@ pub mod builder {
             self
         }
 
-        ///Sends a `GET` request to `/stream/`
+        ///Sends a `GET` request to `/api/stream/`
         pub async fn send(
             self,
         ) -> Result<ResponseValue<::std::vec::Vec<types::StreamInfo>>, Error<types::ErrorMessage>>
         {
             let Self { client, pattern } = self;
             let pattern = pattern.map_err(Error::InvalidRequest)?;
-            let url = format!("{}/stream/", client.baseurl,);
+            let url = format!("{}/api/stream/", client.baseurl,);
             let mut header_map = ::reqwest::header::HeaderMap::with_capacity(1usize);
             header_map.append(
                 ::reqwest::header::HeaderName::from_static("api-version"),
@@ -1255,16 +1766,16 @@ pub mod builder {
             self
         }
 
-        ///Sends a `POST` request to `/stream/`
+        ///Sends a `POST` request to `/api/stream/`
         pub async fn send(
             self,
-        ) -> Result<ResponseValue<types::CreateStreamResponse>, Error<types::ErrorMessage>>
+        ) -> Result<ResponseValue<types::StreamAccessResponse>, Error<types::ErrorMessage>>
         {
             let Self { client, body } = self;
             let body = body
                 .and_then(|v| types::StreamRequest::try_from(v).map_err(|e| e.to_string()))
                 .map_err(Error::InvalidRequest)?;
-            let url = format!("{}/stream/", client.baseurl,);
+            let url = format!("{}/api/stream/", client.baseurl,);
             let mut header_map = ::reqwest::header::HeaderMap::with_capacity(1usize);
             header_map.append(
                 ::reqwest::header::HeaderName::from_static("api-version"),
@@ -1347,16 +1858,16 @@ pub mod builder {
             self
         }
 
-        ///Sends a `POST` request to `/stream/token`
+        ///Sends a `POST` request to `/api/stream/token`
         pub async fn send(
             self,
-        ) -> Result<ResponseValue<types::CreateStreamResponse>, Error<types::ErrorMessage>>
+        ) -> Result<ResponseValue<types::StreamAccessResponse>, Error<types::ErrorMessage>>
         {
             let Self { client, body } = self;
             let body = body
                 .and_then(|v| types::StreamRequest::try_from(v).map_err(|e| e.to_string()))
                 .map_err(Error::InvalidRequest)?;
-            let url = format!("{}/stream/token", client.baseurl,);
+            let url = format!("{}/api/stream/token", client.baseurl,);
             let mut header_map = ::reqwest::header::HeaderMap::with_capacity(1usize);
             header_map.append(
                 ::reqwest::header::HeaderName::from_static("api-version"),
@@ -1441,7 +1952,7 @@ pub mod builder {
             self
         }
 
-        ///Sends a `POST` request to `/stream/add`
+        ///Sends a `POST` request to `/api/stream/add`
         pub async fn send(
             self,
         ) -> Result<ResponseValue<types::AddEventsResponse>, Error<types::ErrorMessage>> {
@@ -1449,7 +1960,7 @@ pub mod builder {
             let body = body
                 .and_then(|v| types::AddEventsRequest::try_from(v).map_err(|e| e.to_string()))
                 .map_err(Error::InvalidRequest)?;
-            let url = format!("{}/stream/add", client.baseurl,);
+            let url = format!("{}/api/stream/add", client.baseurl,);
             let mut header_map = ::reqwest::header::HeaderMap::with_capacity(1usize);
             header_map.append(
                 ::reqwest::header::HeaderName::from_static("api-version"),
@@ -1468,6 +1979,104 @@ pub mod builder {
                 .build()?;
             let info = OperationInfo {
                 operation_id: "add_events",
+            };
+            client.pre(&mut request, &info).await?;
+            let result = client.exec(request, &info).await;
+            client.post(&result, &info).await?;
+            let response = result?;
+            match response.status().as_u16() {
+                200u16 => ResponseValue::from_response(response).await,
+                400u16 => Err(Error::ErrorResponse(
+                    ResponseValue::from_response(response).await?,
+                )),
+                401u16 => Err(Error::ErrorResponse(
+                    ResponseValue::from_response(response).await?,
+                )),
+                404u16 => Err(Error::ErrorResponse(
+                    ResponseValue::from_response(response).await?,
+                )),
+                422u16 => Err(Error::ErrorResponse(
+                    ResponseValue::from_response(response).await?,
+                )),
+                500u16 => Err(Error::ErrorResponse(
+                    ResponseValue::from_response(response).await?,
+                )),
+                _ => Err(Error::UnexpectedResponse(response)),
+            }
+        }
+    }
+
+    ///Builder for [`ClientStreamExt::add_events_json_stream`]
+    ///
+    ///[`ClientStreamExt::add_events_json_stream`]: super::ClientStreamExt::add_events_json_stream
+    #[derive(Debug)]
+    pub struct AddEventsJsonStream<'a> {
+        client: &'a super::Client,
+        key: Result<::std::string::String, String>,
+        body: Result<reqwest::Body, String>,
+    }
+
+    impl<'a> AddEventsJsonStream<'a> {
+        pub fn new(client: &'a super::Client) -> Self {
+            Self {
+                client: client,
+                key: Err("key was not initialized".to_string()),
+                body: Err("body was not initialized".to_string()),
+            }
+        }
+
+        pub fn key<V>(mut self, value: V) -> Self
+        where
+            V: std::convert::TryInto<::std::string::String>,
+        {
+            self.key = value.try_into().map_err(|_| {
+                "conversion to `:: std :: string :: String` for key failed".to_string()
+            });
+            self
+        }
+
+        pub fn body<B>(mut self, value: B) -> Self
+        where
+            B: std::convert::TryInto<reqwest::Body>,
+        {
+            self.body = value
+                .try_into()
+                .map_err(|_| "conversion to `reqwest::Body` for body failed".to_string());
+            self
+        }
+
+        ///Sends a `POST` request to `/api/stream/add/json-stream`
+        pub async fn send(
+            self,
+        ) -> Result<ResponseValue<types::AddEventsStreamResponse>, Error<types::ErrorMessage>>
+        {
+            let Self { client, key, body } = self;
+            let key = key.map_err(Error::InvalidRequest)?;
+            let body = body.map_err(Error::InvalidRequest)?;
+            let url = format!("{}/api/stream/add/json-stream", client.baseurl,);
+            let mut header_map = ::reqwest::header::HeaderMap::with_capacity(1usize);
+            header_map.append(
+                ::reqwest::header::HeaderName::from_static("api-version"),
+                ::reqwest::header::HeaderValue::from_static(super::Client::api_version()),
+            );
+            #[allow(unused_mut)]
+            let mut request = client
+                .client
+                .post(url)
+                .header(
+                    ::reqwest::header::ACCEPT,
+                    ::reqwest::header::HeaderValue::from_static("application/json"),
+                )
+                .header(
+                    ::reqwest::header::CONTENT_TYPE,
+                    ::reqwest::header::HeaderValue::from_static("application/octet-stream"),
+                )
+                .body(body)
+                .query(&progenitor_client::QueryParam::new("key", &key))
+                .headers(header_map)
+                .build()?;
+            let info = OperationInfo {
+                operation_id: "add_events_json_stream",
             };
             client.pre(&mut request, &info).await?;
             let result = client.exec(request, &info).await;
@@ -1532,7 +2141,7 @@ pub mod builder {
             self
         }
 
-        ///Sends a `POST` request to `/stream/cancel`
+        ///Sends a `POST` request to `/api/stream/cancel`
         pub async fn send(
             self,
         ) -> Result<ResponseValue<types::EndStreamResponse>, Error<types::ErrorMessage>> {
@@ -1540,7 +2149,7 @@ pub mod builder {
             let body = body
                 .and_then(|v| types::StreamRequest::try_from(v).map_err(|e| e.to_string()))
                 .map_err(Error::InvalidRequest)?;
-            let url = format!("{}/stream/cancel", client.baseurl,);
+            let url = format!("{}/api/stream/cancel", client.baseurl,);
             let mut header_map = ::reqwest::header::HeaderMap::with_capacity(1usize);
             header_map.append(
                 ::reqwest::header::HeaderName::from_static("api-version"),
@@ -1623,7 +2232,7 @@ pub mod builder {
             self
         }
 
-        ///Sends a `POST` request to `/stream/end`
+        ///Sends a `POST` request to `/api/stream/end`
         pub async fn send(
             self,
         ) -> Result<ResponseValue<types::EndStreamResponse>, Error<types::ErrorMessage>> {
@@ -1631,7 +2240,7 @@ pub mod builder {
             let body = body
                 .and_then(|v| types::StreamRequest::try_from(v).map_err(|e| e.to_string()))
                 .map_err(Error::InvalidRequest)?;
-            let url = format!("{}/stream/end", client.baseurl,);
+            let url = format!("{}/api/stream/end", client.baseurl,);
             let mut header_map = ::reqwest::header::HeaderMap::with_capacity(1usize);
             header_map.append(
                 ::reqwest::header::HeaderName::from_static("api-version"),
@@ -1684,5 +2293,6 @@ pub mod prelude {
     #[allow(unused_imports)]
     pub use super::Client;
     pub use super::ClientClientExt;
+    pub use super::ClientInfoExt;
     pub use super::ClientStreamExt;
 }
