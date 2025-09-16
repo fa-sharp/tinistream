@@ -9,8 +9,7 @@ use time::{Duration, UtcDateTime};
 
 use super::{AuthError, Crypto};
 
-/// Request guard to extract and decrypt the client token from the request (for clients
-/// to read from Redis streams)
+/// Request guard to extract, decrypt, and validate the client token for this request
 pub struct ClientTokenAuth(String);
 
 impl std::ops::Deref for ClientTokenAuth {
