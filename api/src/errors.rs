@@ -24,6 +24,8 @@ pub enum ApiError {
     ExistingStream,
     #[error("Not found: {0}")]
     NotFound(String),
+    #[error("Stream not found")]
+    StreamNotFound,
     #[error("No active stream at this key")]
     ActiveStreamNotFound,
     #[error("Internal server error: {0}")]
@@ -91,6 +93,10 @@ impl From<ApiError> for ApiErrorResponse {
             ApiError::ActiveStreamNotFound => Self::NotFound(ErrorMessage::new(
                 ApiError::ActiveStreamNotFound.to_string(),
                 "no-active-stream",
+            )),
+            ApiError::StreamNotFound => Self::NotFound(ErrorMessage::new(
+                ApiError::StreamNotFound.to_string(),
+                "not-found",
             )),
             ApiError::NotFound(error) => Self::NotFound(ErrorMessage::new(error, "not-found")),
             ApiError::Decode(error) => {

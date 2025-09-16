@@ -2,7 +2,7 @@
   "openapi": "3.0.0",
   "info": {
     "title": "tinistreamer",
-    "version": "0.1.0"
+    "version": "0.1.1"
   },
   "paths": {
     "/api/health": {
@@ -407,6 +407,93 @@
         ]
       }
     },
+    "/api/stream/info": {
+      "get": {
+        "tags": [
+          "Stream"
+        ],
+        "summary": "Get stream info",
+        "description": "Get info on an active stream",
+        "operationId": "get_stream_info",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Incorrectly formatted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
     "/api/stream/add": {
       "post": {
         "tags": [
@@ -513,7 +600,7 @@
           }
         ],
         "requestBody": {
-          "description": "JSON stream (stream of JSON strings separated by newlines)",
+          "description": "JSON Lines (stream of JSON strings separated by newlines)",
           "content": {
             "application/octet-stream": {
               "schema": {
@@ -976,14 +1063,26 @@
       "EndStreamResponse": {
         "type": "object",
         "required": [
-          "id"
+          "status"
         ],
         "properties": {
-          "id": {
-            "description": "ID of the ending event",
-            "type": "string"
+          "status": {
+            "description": "Status of the stream",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StreamStatus"
+              }
+            ]
           }
         }
+      },
+      "StreamStatus": {
+        "type": "string",
+        "enum": [
+          "active",
+          "cancelled",
+          "ended"
+        ]
       }
     },
     "securitySchemes": {

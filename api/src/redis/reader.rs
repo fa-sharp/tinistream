@@ -1,4 +1,7 @@
-use fred::{bytes_utils::Str, prelude::StreamsInterface};
+use fred::{
+    bytes_utils::Str,
+    prelude::{HashesInterface, StreamsInterface},
+};
 use rocket::{
     async_stream, async_trait,
     futures::stream::Stream,
@@ -57,15 +60,24 @@ impl RedisReader {
         start_event_id: Option<&str>,
     ) -> Result<(Vec<SseEvent>, Str, bool), ApiError> {
         let start_event_id = start_event_id.unwrap_or("0-0");
-        let prev_events = self.xread(&key, start_event_id, None, None).await?;
-        let (last_event_id, is_end) = prev_events
+        let pipeline = self.client.pipeline();
+        let _: () = pipeline.xread(None, None, key, start_event_id).await?;
+        let _: () = pipeline.hget(meta_key(key), META_STATUS_FIELD).await?;
+        let (xread_response, status): (Option<Vec<(Str, Vec<RedisEntry>)>>, Option<String>) =
+            pipeline.all().await?;
+        let (_key, prev_events) = xread_response
+            .and_then(|mut streams| streams.pop())
+            .ok_or(ApiError::StreamNotFound)?;
+
+        let last_event_id = prev_events
             .last()
-            .map(|entry| (entry.0.to_owned(), is_end_event(entry)))
-            .unwrap_or_else(|| (start_event_id.into(), false));
+            .map(|(id, _)| id.to_owned())
+            .unwrap_or_else(|| start_event_id.into());
         let sse_events = prev_events
             .into_iter()
             .map(stream_event_to_sse)
             .collect::<Vec<_>>();
+        let is_end = status.is_none_or(|s| s != StreamStatus::Active.as_str());
 
         Ok((sse_events, last_event_id, is_end))
     }
@@ -79,6 +91,10 @@ impl RedisReader {
         async_stream::stream! {
             while let Some(res) = self.next_event(&key, &last_event_id).await {
                 match res {
+                    Ok(event) if is_end_event(&event) => {
+                        yield stream_event_to_sse(event);
+                        break;
+                    }
                     Ok((id, data)) => {
                         last_event_id = (*id).to_owned();
                         yield stream_event_to_sse((id, data));
@@ -93,7 +109,6 @@ impl RedisReader {
     }
 
     /// Wait for the next event from the given Redis stream using a blocking `xread` command.
-    /// Returns `None` if encounters an ending event. Will return an error upon the blocking timeout.
     async fn next_event(
         &self,
         key: &str,
@@ -102,7 +117,6 @@ impl RedisReader {
         self.xread(key, start_event_id, Some(1), Some(XREAD_BLOCK_TIMEOUT))
             .await
             .map(|mut entries| entries.pop()) // only reading 1 event in the command
-            .map(|entry| entry.filter(|e| !is_end_event(e))) // return `None` for ending event
             .transpose()
     }
 
@@ -119,7 +133,7 @@ impl RedisReader {
             .xread::<Option<Vec<(Str, _)>>, _, _>(count, block, key, start_event_id)
             .await?
             .and_then(|mut streams| streams.pop()) // only reading 1 stream in the command
-            .ok_or_else(|| ApiError::NotFound("Stream not found".to_owned()))?;
+            .ok_or(ApiError::StreamNotFound)?;
         Ok(events)
     }
 }

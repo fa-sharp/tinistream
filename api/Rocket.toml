@@ -7,4 +7,3 @@ log_level = "normal"  # can set to "debug" for more logs
 server_address = "http://localhost:8000"
 redis_url = "redis://localhost:6379"
 redis_pool = 2
-ttl = 120

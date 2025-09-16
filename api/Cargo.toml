@@ -10,6 +10,7 @@ base64 = "0.22"
 deadpool = { version = "0.12.3", features = ["rt_tokio_1"] }
 dotenvy = "0.15.7"
 fred = { version = "10.1", default-features = false, features = [
+  "i-hashes",
   "i-keys",
   "i-streams",
   "transactions",

@@ -56,7 +56,7 @@ impl<'r> OpenApiFromData<'r> for JsonStream<'r> {
 
         Ok(openapi3::RequestBody {
             description: Some(
-                "JSON stream (stream of JSON strings separated by newlines)".to_string(),
+                "JSON Lines (stream of JSON strings separated by newlines)".to_string(),
             ),
             content: {
                 let mut content = schemars::Map::new();

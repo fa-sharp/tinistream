@@ -22,12 +22,12 @@ pub struct AppConfig {
     pub api_key: String,
     /// 32-byte hex string (64 characters) used for encrypting client tokens
     pub secret_key: String,
-    /// Default TTL for Redis streams (default: 30 seconds)
+    /// Default TTL in seconds for Redis streams (default: 10 minutes)
     #[serde(default = "default_stream_ttl")]
     pub ttl: u32,
 }
 fn default_stream_ttl() -> u32 {
-    30
+    600
 }
 
 /// Get the server configuration from Rocket state

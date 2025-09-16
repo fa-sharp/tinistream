@@ -227,12 +227,16 @@ pub mod types {
     ///{
     ///  "type": "object",
     ///  "required": [
-    ///    "id"
+    ///    "status"
     ///  ],
     ///  "properties": {
-    ///    "id": {
-    ///      "description": "ID of the ending event",
-    ///      "type": "string"
+    ///    "status": {
+    ///      "description": "Status of the stream",
+    ///      "allOf": [
+    ///        {
+    ///          "$ref": "#/components/schemas/StreamStatus"
+    ///        }
+    ///      ]
     ///    }
     ///  }
     ///}
@@ -240,8 +244,8 @@ pub mod types {
     /// </details>
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
     pub struct EndStreamResponse {
-        ///ID of the ending event
-        pub id: ::std::string::String,
+        ///Status of the stream
+        pub status: StreamStatus,
     }
 
     impl ::std::convert::From<&EndStreamResponse> for EndStreamResponse {
@@ -551,6 +555,95 @@ pub mod types {
         }
     }
 
+    ///`StreamStatus`
+    ///
+    /// <details><summary>JSON schema</summary>
+    ///
+    /// ```json
+    ///{
+    ///  "type": "string",
+    ///  "enum": [
+    ///    "active",
+    ///    "cancelled",
+    ///    "ended"
+    ///  ]
+    ///}
+    /// ```
+    /// </details>
+    #[derive(
+        :: serde :: Deserialize,
+        :: serde :: Serialize,
+        Clone,
+        Copy,
+        Debug,
+        Eq,
+        Hash,
+        Ord,
+        PartialEq,
+        PartialOrd,
+    )]
+    pub enum StreamStatus {
+        #[serde(rename = "active")]
+        Active,
+        #[serde(rename = "cancelled")]
+        Cancelled,
+        #[serde(rename = "ended")]
+        Ended,
+    }
+
+    impl ::std::convert::From<&Self> for StreamStatus {
+        fn from(value: &StreamStatus) -> Self {
+            value.clone()
+        }
+    }
+
+    impl ::std::fmt::Display for StreamStatus {
+        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+            match *self {
+                Self::Active => f.write_str("active"),
+                Self::Cancelled => f.write_str("cancelled"),
+                Self::Ended => f.write_str("ended"),
+            }
+        }
+    }
+
+    impl ::std::str::FromStr for StreamStatus {
+        type Err = self::error::ConversionError;
+        fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+            match value {
+                "active" => Ok(Self::Active),
+                "cancelled" => Ok(Self::Cancelled),
+                "ended" => Ok(Self::Ended),
+                _ => Err("invalid value".into()),
+            }
+        }
+    }
+
+    impl ::std::convert::TryFrom<&str> for StreamStatus {
+        type Error = self::error::ConversionError;
+        fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+            value.parse()
+        }
+    }
+
+    impl ::std::convert::TryFrom<&::std::string::String> for StreamStatus {
+        type Error = self::error::ConversionError;
+        fn try_from(
+            value: &::std::string::String,
+        ) -> ::std::result::Result<Self, self::error::ConversionError> {
+            value.parse()
+        }
+    }
+
+    impl ::std::convert::TryFrom<::std::string::String> for StreamStatus {
+        type Error = self::error::ConversionError;
+        fn try_from(
+            value: ::std::string::String,
+        ) -> ::std::result::Result<Self, self::error::ConversionError> {
+            value.parse()
+        }
+    }
+
     /// Types for composing complex structures.
     pub mod builder {
         #[derive(Clone, Debug)]
@@ -785,26 +878,26 @@ pub mod types {
 
         #[derive(Clone, Debug)]
         pub struct EndStreamResponse {
-            id: ::std::result::Result<::std::string::String, ::std::string::String>,
+            status: ::std::result::Result<super::StreamStatus, ::std::string::String>,
         }
 
         impl ::std::default::Default for EndStreamResponse {
             fn default() -> Self {
                 Self {
-                    id: Err("no value supplied for id".to_string()),
+                    status: Err("no value supplied for status".to_string()),
                 }
             }
         }
 
         impl EndStreamResponse {
-            pub fn id<T>(mut self, value: T) -> Self
+            pub fn status<T>(mut self, value: T) -> Self
             where
-                T: ::std::convert::TryInto<::std::string::String>,
+                T: ::std::convert::TryInto<super::StreamStatus>,
                 T::Error: ::std::fmt::Display,
             {
-                self.id = value
+                self.status = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for id: {}", e));
+                    .map_err(|e| format!("error converting supplied value for status: {}", e));
                 self
             }
         }
@@ -814,13 +907,17 @@ pub mod types {
             fn try_from(
                 value: EndStreamResponse,
             ) -> ::std::result::Result<Self, super::error::ConversionError> {
-                Ok(Self { id: value.id? })
+                Ok(Self {
+                    status: value.status?,
+                })
             }
         }
 
         impl ::std::convert::From<super::EndStreamResponse> for EndStreamResponse {
             fn from(value: super::EndStreamResponse) -> Self {
-                Self { id: Ok(value.id) }
+                Self {
+                    status: Ok(value.status),
+                }
             }
         }
 
@@ -1243,7 +1340,7 @@ pub mod types {
 #[derive(Clone, Debug)]
 ///Client for tinistreamer
 ///
-///Version: 0.1.0
+///Version: 0.1.1
 pub struct Client {
     pub(crate) baseurl: String,
     pub(crate) client: reqwest::Client,
@@ -1284,7 +1381,7 @@ impl Client {
 
 impl ClientInfo<()> for Client {
     fn api_version() -> &'static str {
-        "0.1.0"
+        "0.1.1"
     }
 
     fn baseurl(&self) -> &str {
@@ -1399,6 +1496,19 @@ pub trait ClientStreamExt {
     ///    .await;
     /// ```
     fn create_token(&self) -> builder::CreateToken<'_>;
+    ///Get stream info
+    ///
+    ///Get info on an active stream
+    ///
+    ///Sends a `GET` request to `/api/stream/info`
+    ///
+    ///```ignore
+    /// let response = client.get_stream_info()
+    ///    .key(key)
+    ///    .send()
+    ///    .await;
+    /// ```
+    fn get_stream_info(&self) -> builder::GetStreamInfo<'_>;
     ///Add events
     ///
     ///Add events to a stream
@@ -1420,7 +1530,7 @@ pub trait ClientStreamExt {
     ///
     ///Arguments:
     /// - `key`
-    /// - `body`: JSON stream (stream of JSON strings separated by newlines)
+    /// - `body`: JSON Lines (stream of JSON strings separated by newlines)
     ///```ignore
     /// let response = client.add_events_json_stream()
     ///    .key(key)
@@ -1464,6 +1574,10 @@ impl ClientStreamExt for Client {
 
     fn create_token(&self) -> builder::CreateToken<'_> {
         builder::CreateToken::new(self)
+    }
+
+    fn get_stream_info(&self) -> builder::GetStreamInfo<'_> {
+        builder::GetStreamInfo::new(self)
     }
 
     fn add_events(&self) -> builder::AddEvents<'_> {
@@ -1886,6 +2000,85 @@ pub mod builder {
                 .build()?;
             let info = OperationInfo {
                 operation_id: "create_token",
+            };
+            client.pre(&mut request, &info).await?;
+            let result = client.exec(request, &info).await;
+            client.post(&result, &info).await?;
+            let response = result?;
+            match response.status().as_u16() {
+                200u16 => ResponseValue::from_response(response).await,
+                400u16 => Err(Error::ErrorResponse(
+                    ResponseValue::from_response(response).await?,
+                )),
+                401u16 => Err(Error::ErrorResponse(
+                    ResponseValue::from_response(response).await?,
+                )),
+                404u16 => Err(Error::ErrorResponse(
+                    ResponseValue::from_response(response).await?,
+                )),
+                422u16 => Err(Error::ErrorResponse(
+                    ResponseValue::from_response(response).await?,
+                )),
+                500u16 => Err(Error::ErrorResponse(
+                    ResponseValue::from_response(response).await?,
+                )),
+                _ => Err(Error::UnexpectedResponse(response)),
+            }
+        }
+    }
+
+    ///Builder for [`ClientStreamExt::get_stream_info`]
+    ///
+    ///[`ClientStreamExt::get_stream_info`]: super::ClientStreamExt::get_stream_info
+    #[derive(Debug, Clone)]
+    pub struct GetStreamInfo<'a> {
+        client: &'a super::Client,
+        key: Result<::std::string::String, String>,
+    }
+
+    impl<'a> GetStreamInfo<'a> {
+        pub fn new(client: &'a super::Client) -> Self {
+            Self {
+                client: client,
+                key: Err("key was not initialized".to_string()),
+            }
+        }
+
+        pub fn key<V>(mut self, value: V) -> Self
+        where
+            V: std::convert::TryInto<::std::string::String>,
+        {
+            self.key = value.try_into().map_err(|_| {
+                "conversion to `:: std :: string :: String` for key failed".to_string()
+            });
+            self
+        }
+
+        ///Sends a `GET` request to `/api/stream/info`
+        pub async fn send(
+            self,
+        ) -> Result<ResponseValue<types::StreamInfo>, Error<types::ErrorMessage>> {
+            let Self { client, key } = self;
+            let key = key.map_err(Error::InvalidRequest)?;
+            let url = format!("{}/api/stream/info", client.baseurl,);
+            let mut header_map = ::reqwest::header::HeaderMap::with_capacity(1usize);
+            header_map.append(
+                ::reqwest::header::HeaderName::from_static("api-version"),
+                ::reqwest::header::HeaderValue::from_static(super::Client::api_version()),
+            );
+            #[allow(unused_mut)]
+            let mut request = client
+                .client
+                .get(url)
+                .header(
+                    ::reqwest::header::ACCEPT,
+                    ::reqwest::header::HeaderValue::from_static("application/json"),
+                )
+                .query(&progenitor_client::QueryParam::new("key", &key))
+                .headers(header_map)
+                .build()?;
+            let info = OperationInfo {
+                operation_id: "get_stream_info",
             };
             client.pre(&mut request, &info).await?;
             let result = client.exec(request, &info).await;

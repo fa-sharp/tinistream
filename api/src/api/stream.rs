@@ -10,7 +10,7 @@ use crate::{
     crypto::Crypto,
     data::JsonStream,
     errors::ApiError,
-    redis::{stream_sse_url, RedisClient, DATA_KEY, EVENT_KEY},
+    redis::{stream_sse_url, RedisClient, StreamStatus, DATA_KEY, EVENT_KEY},
 };
 
 pub fn get_routes() -> (Vec<Route>, OpenApi) {
@@ -18,6 +18,7 @@ pub fn get_routes() -> (Vec<Route>, OpenApi) {
         list_streams,
         create_stream,
         create_token,
+        get_stream_info,
         add_events,
         add_events_json_stream,
         cancel_stream,
@@ -27,7 +28,6 @@ pub fn get_routes() -> (Vec<Route>, OpenApi) {
 
 /// # List streams
 /// List all active streams
-///
 #[openapi(tag = "Stream")]
 #[get("/?<pattern>")]
 async fn list_streams(
@@ -42,6 +42,27 @@ async fn list_streams(
         .collect();
 
     Ok(Json(response))
+}
+
+/// # Get stream info
+/// Get info on an active stream
+#[openapi(tag = "Stream")]
+#[get("/info?<key>")]
+async fn get_stream_info(
+    _api_key: ApiKeyAuth,
+    key: &str,
+    redis: RedisClient,
+) -> Result<Json<StreamInfo>, ApiError> {
+    let (status, length, ttl) = redis.stream_info(key).await?;
+    if status.is_none_or(|s| s != StreamStatus::Active.as_str()) {
+        return Err(ApiError::ActiveStreamNotFound);
+    }
+
+    Ok(Json(StreamInfo {
+        key: key.to_owned(),
+        length,
+        ttl,
+    }))
 }
 
 /// # Create stream
@@ -92,7 +113,6 @@ async fn add_events(
     _api_key: ApiKeyAuth,
     input: Json<AddEventsRequest>,
     redis: RedisClient,
-    config: &State<AppConfig>,
 ) -> Result<Json<AddEventsResponse>, ApiError> {
     if !redis.is_active(&input.key).await? {
         return Err(ApiError::ActiveStreamNotFound);
@@ -109,7 +129,7 @@ async fn add_events(
             entry
         })
         .collect::<Vec<_>>();
-    let ids = redis.write_events(&input.key, entries, config.ttl).await?;
+    let ids = redis.write_events(&input.key, entries).await?;
 
     Ok(Json(AddEventsResponse { ids }))
 }
@@ -123,7 +143,6 @@ async fn add_events_json_stream(
     key: &str,
     mut data: JsonStream<'_>,
     redis: RedisClient,
-    config: &State<AppConfig>,
 ) -> Result<Json<AddEventsStreamResponse>, ApiError> {
     if !redis.is_active(key).await? {
         return Err(ApiError::ActiveStreamNotFound);
@@ -132,14 +151,14 @@ async fn add_events_json_stream(
     let mut ids: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
 
-    while let Some(res) = data.stream.next().await {
-        let event = res?;
+    while let Some(event) = data.stream.next().await.transpose()? {
         let mut entry = vec![(EVENT_KEY, event.event.as_str())];
         if let Some(data) = event.data.as_deref() {
             entry.push((DATA_KEY, data));
         }
-        match redis.write_event(key, entry, config.ttl).await {
-            Ok(id) => ids.push(id),
+        match redis.write_event(key, entry).await {
+            Ok(Some(id)) => ids.push(id),
+            Ok(None) => break, // stream ended
             Err(err) => errors.push(err.to_string()),
         }
     }
@@ -158,9 +177,11 @@ async fn cancel_stream(
     if !redis.is_active(&input.key).await? {
         return Err(ApiError::ActiveStreamNotFound);
     }
+    redis.cancel_stream(&input.key).await?;
 
-    let id = redis.cancel_stream(&input.key).await?;
-    Ok(Json(EndStreamResponse { id }))
+    Ok(Json(EndStreamResponse {
+        status: StreamStatus::Cancelled,
+    }))
 }
 
 /// # End stream
@@ -174,9 +195,11 @@ async fn end_stream(
     if !redis.is_active(&input.key).await? {
         return Err(ApiError::ActiveStreamNotFound);
     }
+    redis.end_stream(&input.key).await?;
 
-    let id = redis.end_stream(&input.key).await?;
-    Ok(Json(EndStreamResponse { id }))
+    Ok(Json(EndStreamResponse {
+        status: StreamStatus::Ended,
+    }))
 }
 
 /// Information about the stream
@@ -235,6 +258,6 @@ struct AddEventsStreamResponse {
 
 #[derive(JsonSchema, Serialize)]
 struct EndStreamResponse {
-    /// ID of the ending event
-    id: String,
+    /// Status of the stream
+    status: StreamStatus,
 }

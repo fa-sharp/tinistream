@@ -7,11 +7,6 @@ use rocket::fairing::AdHoc;
 
 use crate::config::get_app_config;
 
-/// Token version
-const VERSION: &[u8] = b"v1";
-const VERSION_LEN: usize = VERSION.len();
-const NONCE_LEN: usize = 12;
-
 /// Error that can occur while encrypting/decrypting tokens
 #[derive(Debug, thiserror::Error)]
 pub enum CryptoError {
@@ -28,6 +23,10 @@ pub enum CryptoError {
     #[error("Failed to decode UTF-8 from decrypted bytes")]
     Utf8(#[from] std::string::FromUtf8Error),
 }
+
+const VERSION: &[u8] = b"v1";
+const VERSION_LEN: usize = VERSION.len();
+const NONCE_LEN: usize = 12;
 
 /// Service for encrypting and decrypting tokens using the secret key
 #[derive(Clone)]
@@ -50,12 +49,7 @@ impl Crypto {
             .encrypt(&nonce, plaintext.as_bytes())
             .map_err(|_| CryptoError::Encrypt)?;
 
-        let capacity = VERSION_LEN + NONCE_LEN + ciphertext.len();
-        let mut token_bytes: Vec<u8> = Vec::with_capacity(capacity);
-        token_bytes.extend_from_slice(VERSION);
-        token_bytes.extend_from_slice(&nonce);
-        token_bytes.extend_from_slice(&ciphertext);
-
+        let token_bytes = [VERSION, &nonce, &ciphertext].concat();
         Ok(BASE64_URL_SAFE_NO_PAD.encode(&token_bytes))
     }
 
@@ -86,7 +80,7 @@ impl Crypto {
 
 /// Fairing that sets up an encryption service
 pub fn setup_encryption() -> AdHoc {
-    AdHoc::on_ignite("Encryption setup", |rocket| async {
+    AdHoc::on_ignite("Encryption", |rocket| async {
         let app_config = get_app_config(&rocket);
         let crypto = Crypto::new(&app_config.secret_key)
             .expect("Invalid secret key: must be 64-character hexadecimal string");

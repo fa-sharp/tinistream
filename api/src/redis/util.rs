@@ -6,6 +6,11 @@ use rocket::response;
 
 use super::constants::*;
 
+/// Get the key/prefix for the metadata associated with a given key/prefix
+pub fn meta_key(key: &str) -> String {
+    [META_PREFIX, key].concat()
+}
+
 /// Checks if the event is an ending event (`end` or `cancel`)
 pub fn is_end_event((_id, data): &RedisEntry) -> bool {
     data.get(EVENT_KEY)
