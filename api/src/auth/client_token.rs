@@ -7,10 +7,7 @@ use rocket::{
 use rocket_okapi::request::OpenApiFromRequest;
 use time::{Duration, UtcDateTime};
 
-use crate::{
-    crypto::{Crypto, CryptoError},
-    errors::ApiError,
-};
+use super::{AuthError, Crypto};
 
 /// Request guard to extract and decrypt the client token from the request (for clients
 /// to read from Redis streams)
@@ -25,7 +22,7 @@ impl std::ops::Deref for ClientTokenAuth {
 
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for ClientTokenAuth {
-    type Error = CryptoError;
+    type Error = AuthError;
 
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         // Try to get token from the Authorization header, or from the 'token' query
@@ -36,7 +33,7 @@ impl<'r> FromRequest<'r> for ClientTokenAuth {
             .or(req
                 .query_fields()
                 .find_map(|field| (field.name == "token").then_some(field.value)))
-            .or_error((Status::Unauthorized, CryptoError::MissingToken)));
+            .or_error((Status::Unauthorized, AuthError::MissingToken)));
 
         // Decrypt the client token
         let crypto = req.rocket().state::<Crypto>().expect("should be attached");
@@ -44,7 +41,15 @@ impl<'r> FromRequest<'r> for ClientTokenAuth {
             .decrypt_base64(encrypted_token)
             .or_error(Status::Unauthorized));
 
-        Outcome::Success(ClientTokenAuth(token))
+        // Validate the client token is not expired and has access to the requested stream key
+        let stream_key = req
+            .query_fields()
+            .find_map(|field| (field.name == "key").then_some(field.value))
+            .unwrap_or_default();
+        match validate_client_token(&token, stream_key) {
+            Ok(_) => Outcome::Success(ClientTokenAuth(token)),
+            Err(err) => Outcome::Error((Status::Unauthorized, err)),
+        }
     }
 }
 
@@ -56,15 +61,18 @@ pub fn create_client_token(key: &str, ttl: Duration) -> String {
 }
 
 /// Verify that the plaintext client token matches the given stream key and is not expired
-pub fn verify_client_token(token: &str, key: &str) -> Result<bool, ApiError> {
-    token
-        .split_once(':')
-        .filter(|(_, token_key)| *token_key == key)
-        .and_then(|(unix_expires, _)| {
-            let expiration = UtcDateTime::from_unix_timestamp(unix_expires.parse().ok()?).ok()?;
-            (expiration > UtcDateTime::now()).then_some(true)
-        })
-        .ok_or_else(|| ApiError::Authentication("Invalid or expired token".to_owned()))
+fn validate_client_token(token: &str, key: &str) -> Result<(), AuthError> {
+    let (unix_expires, token_key) = token.split_once(':').ok_or(AuthError::InvalidToken)?;
+    let expiration = UtcDateTime::from_unix_timestamp(unix_expires.parse().unwrap_or_default())
+        .map_err(|_| AuthError::InvalidToken)?;
+    if expiration < UtcDateTime::now() {
+        return Err(AuthError::ExpiredToken);
+    }
+    if token_key != key {
+        return Err(AuthError::PermissionDenied);
+    }
+
+    Ok(())
 }
 
 /// OpenAPI docs for the client token

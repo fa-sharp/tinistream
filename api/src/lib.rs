@@ -1,7 +1,6 @@
 pub mod api;
 pub mod auth;
 pub mod config;
-pub mod crypto;
 pub mod data;
 pub mod errors;
 pub mod openapi;
@@ -11,8 +10,8 @@ use rocket::fairing::AdHoc;
 use rocket_okapi::mount_endpoints_and_merged_docs;
 
 use crate::{
+    auth::setup_encryption,
     config::{get_config_provider, AppConfig},
-    crypto::setup_encryption,
     errors::get_catchers,
     openapi::get_openapi_routes,
     redis::setup_redis,

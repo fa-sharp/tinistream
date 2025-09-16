@@ -5,9 +5,8 @@ use serde::{Deserialize, Serialize};
 use time::ext::NumericalDuration;
 
 use crate::{
-    auth::{create_client_token, ApiKeyAuth},
+    auth::{create_client_token, ApiKeyAuth, Crypto},
     config::AppConfig,
-    crypto::Crypto,
     data::JsonStream,
     errors::ApiError,
     redis::{stream_sse_url, RedisClient, StreamStatus, DATA_KEY, EVENT_KEY},

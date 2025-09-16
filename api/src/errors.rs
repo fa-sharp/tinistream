@@ -9,15 +9,15 @@ use schemars::JsonSchema;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::crypto::CryptoError;
+use crate::auth::AuthError;
 
 /// Errors that can arise in the API
 #[derive(Error, Debug)]
 pub enum ApiError {
+    #[error(transparent)]
+    Auth(#[from] AuthError),
     #[error("Redis error: {0}")]
     Redis(#[from] fred::error::Error),
-    #[error("Authentication error: {0}")]
-    Authentication(String),
     #[error("Bad request: {0}")]
     BadRequest(String),
     #[error("Existing stream at this key")]
@@ -30,8 +30,6 @@ pub enum ApiError {
     ActiveStreamNotFound,
     #[error("Internal server error: {0}")]
     Internal(String),
-    #[error(transparent)]
-    Crypto(#[from] CryptoError),
     #[error(transparent)]
     Decode(#[from] tokio_util::codec::LinesCodecError),
 }
@@ -80,7 +78,7 @@ impl From<ApiError> for ApiErrorResponse {
     /// (hide details of internal errors, auth errors, etc.)
     fn from(value: ApiError) -> Self {
         match value {
-            ApiError::Authentication(_) | ApiError::Crypto(_) => {
+            ApiError::Auth(_) => {
                 Self::Unauthorized(ErrorMessage::new("Unauthorized".to_owned(), "unauthorized"))
             }
             ApiError::BadRequest(error) => {
@@ -128,7 +126,7 @@ fn bad_request(_req: &Request) -> ApiError {
 
 #[catch(401)]
 fn unauthorized(_req: &Request) -> ApiError {
-    ApiError::Authentication("Unauthorized".to_owned())
+    ApiError::Auth(AuthError::Unauthorized)
 }
 
 #[catch(404)]

@@ -5,24 +5,7 @@ use aes_gcm::{
 use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine};
 use rocket::fairing::AdHoc;
 
-use crate::config::get_app_config;
-
-/// Error that can occur while encrypting/decrypting tokens
-#[derive(Debug, thiserror::Error)]
-pub enum CryptoError {
-    #[error("Invalid secret key")]
-    InvalidKey,
-    #[error("Invalid token")]
-    InvalidToken,
-    #[error("Missing token")]
-    MissingToken,
-    #[error("Failed to encrypt token")]
-    Encrypt,
-    #[error("Failed to decrypt token")]
-    Decrypt,
-    #[error("Failed to decode UTF-8 from decrypted bytes")]
-    Utf8(#[from] std::string::FromUtf8Error),
-}
+use crate::{auth::AuthError, config::get_app_config};
 
 const VERSION: &[u8] = b"v1";
 const VERSION_LEN: usize = VERSION.len();
@@ -35,44 +18,44 @@ pub struct Crypto {
 }
 
 impl Crypto {
-    pub fn new(key: &str) -> Result<Self, CryptoError> {
-        let key_bytes = hex::decode(key).map_err(|_| CryptoError::InvalidKey)?;
-        let cipher = Aes256Gcm::new_from_slice(&key_bytes).map_err(|_| CryptoError::InvalidKey)?;
+    pub fn new(key: &str) -> Result<Self, AuthError> {
+        let key_bytes = hex::decode(key).map_err(|_| AuthError::InvalidKey)?;
+        let cipher = Aes256Gcm::new_from_slice(&key_bytes).map_err(|_| AuthError::InvalidKey)?;
         Ok(Self { cipher })
     }
 
     /// Encrypts a string using AES-256-GCM and returns a base64-encoded token with the version, nonce, and ciphertext.
-    pub fn encrypt_base64(&self, plaintext: &str) -> Result<String, CryptoError> {
+    pub fn encrypt_base64(&self, plaintext: &str) -> Result<String, AuthError> {
         let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
         let ciphertext = self
             .cipher
             .encrypt(&nonce, plaintext.as_bytes())
-            .map_err(|_| CryptoError::Encrypt)?;
+            .map_err(|_| AuthError::Encrypt)?;
 
         let token_bytes = [VERSION, &nonce, &ciphertext].concat();
         Ok(BASE64_URL_SAFE_NO_PAD.encode(&token_bytes))
     }
 
     /// Decrypts a base64-encoded token into the plaintext message
-    pub fn decrypt_base64(&self, token: &str) -> Result<String, CryptoError> {
+    pub fn decrypt_base64(&self, token: &str) -> Result<String, AuthError> {
         let bytes = BASE64_URL_SAFE_NO_PAD
             .decode(token)
-            .map_err(|_| CryptoError::InvalidToken)?;
+            .map_err(|_| AuthError::InvalidToken)?;
 
         let (version, rest) = bytes
             .split_at_checked(VERSION_LEN)
-            .ok_or(CryptoError::InvalidToken)?;
+            .ok_or(AuthError::InvalidToken)?;
         if version != VERSION {
-            return Err(CryptoError::InvalidToken);
+            return Err(AuthError::InvalidToken);
         }
 
         let (nonce, ciphertext) = rest
             .split_at_checked(NONCE_LEN)
-            .ok_or(CryptoError::InvalidToken)?;
+            .ok_or(AuthError::InvalidToken)?;
         let plaintext = self
             .cipher
             .decrypt(Nonce::from_slice(nonce), ciphertext)
-            .map_err(|_| CryptoError::Decrypt)?;
+            .map_err(|_| AuthError::Decrypt)?;
 
         Ok(String::from_utf8(plaintext)?)
     }
