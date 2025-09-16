@@ -40,7 +40,7 @@ impl RedisClient {
     /// Check if there's an active stream with the given key
     pub async fn is_active(&self, key: &str) -> FredResult<bool> {
         let status: Option<String> = self.client.hget(meta_key(key), META_STATUS_FIELD).await?;
-        Ok(status.map_or(false, |s| s == StreamStatus::Active.as_str()))
+        Ok(status.map_or(false, |s| *s == StreamStatus::Active))
     }
 
     /// Start a new stream with the given key by writing a `start` entry and setting the expiration.
@@ -71,10 +71,15 @@ impl RedisClient {
         let _: () = trx.xadd(key, true, XADD_CAP, "*", event).await?;
         let (status, id): (Option<String>, Option<String>) = trx.exec(true).await?;
 
-        if status.is_some_and(|s| s == StreamStatus::Active.as_str()) {
-            Ok(id)
-        } else {
-            Ok(None)
+        match status {
+            Some(status) if *status == StreamStatus::Active => Ok(id),
+            _ => {
+                if let Some(id) = id {
+                    // Stream is not active, delete the added event
+                    let _: () = self.client.xdel(key, id).await?;
+                }
+                Ok(None)
+            }
         }
     }
 
@@ -142,7 +147,7 @@ impl RedisClient {
             .into_iter()
             .zip(stream_info.into_iter().tuples())
             .filter_map(|((key, _), (status, len, ttl))| {
-                if status.as_str()? == StreamStatus::Active.as_str() {
+                if *status.as_str()? == StreamStatus::Active {
                     Some((key.to_owned(), len.as_u64()?, ttl.as_i64()?))
                 } else {
                     None

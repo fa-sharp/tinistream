@@ -43,3 +43,18 @@ impl StreamStatus {
         }
     }
 }
+impl PartialEq for StreamStatus {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+impl PartialEq<str> for StreamStatus {
+    fn eq(&self, other: &str) -> bool {
+        self.as_str() == other
+    }
+}
+impl PartialEq<StreamStatus> for str {
+    fn eq(&self, other: &StreamStatus) -> bool {
+        self == other.as_str()
+    }
+}
