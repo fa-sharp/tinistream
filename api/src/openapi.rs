@@ -6,9 +6,9 @@ use rocket_okapi::{
 /// Create the OpenAPI doc routes
 pub fn get_openapi_routes() -> impl Into<Vec<rocket::Route>> {
     make_rapidoc(&RapiDocConfig {
-        title: Some(String::from("RsStreamer API Documentation")),
+        title: Some(String::from("Tinistream API Documentation")),
         general: GeneralConfig {
-            heading_text: String::from("RsStreamer API"),
+            heading_text: String::from("Tinistream API"),
             spec_urls: vec![UrlObject::new("OpenAPI Schema", "/openapi.json")],
             ..Default::default()
         },
