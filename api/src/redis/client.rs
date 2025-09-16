@@ -94,18 +94,16 @@ impl RedisClient {
 
     /// Mark the stream as ended.
     pub async fn end_stream(&self, key: &str) -> FredResult<()> {
-        let end_entry = (EVENT_KEY, END);
         let trx = self.client.multi();
-        let _: () = trx.xadd(key, true, None, "*", end_entry).await?;
+        let _: () = trx.xadd(key, true, None, "*", END_ENTRY).await?;
         let _: () = trx.hset(meta_key(key), META_ENDED).await?;
         trx.exec(true).await
     }
 
     /// Mark the stream as cancelled.
     pub async fn cancel_stream(&self, key: &str) -> FredResult<()> {
-        let cancel_entry = (EVENT_KEY, CANCEL);
         let trx = self.client.multi();
-        let _: () = trx.xadd(key, true, None, "*", cancel_entry).await?;
+        let _: () = trx.xadd(key, true, None, "*", CANCEL_ENTRY).await?;
         let _: () = trx.hset(meta_key(key), META_CANCELLED).await?;
         trx.exec(true).await
     }

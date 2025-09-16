@@ -1,21 +1,28 @@
+use reqwest::header::HeaderMap;
+use tokio::net::TcpListener;
+
 use tinistreamer::build_rocket;
 use tinistreamer_client::{types::*, Client, ClientStreamExt};
 
 #[tokio::test]
-async fn stream() {
-    let rocket = build_rocket().ignite().await.expect("Failed to ignite");
+async fn stream() -> Result<(), tokio::io::Error> {
+    let rocket = build_rocket();
+    let port = { TcpListener::bind("127.0.0.1:0").await?.local_addr()?.port() };
+    let figment = rocket.figment().clone().merge((rocket::Config::PORT, port));
+
+    let rocket = rocket.configure(figment).ignite().await.expect("ignite");
     let shutdown = rocket.shutdown();
     let rocket_handle = tokio::spawn(rocket.launch());
 
     let api_key = dotenvy::var("STREAMER_API_KEY").expect("API key not set");
-    let mut api_key_header = reqwest::header::HeaderMap::new();
+    let mut api_key_header = HeaderMap::new();
     api_key_header.insert("X-API-KEY", api_key.parse().unwrap());
 
     let http_client = reqwest::Client::builder()
         .default_headers(api_key_header)
         .build()
-        .unwrap();
-    let client = Client::new_with_client("http://localhost:8000", http_client);
+        .expect("build client");
+    let client = Client::new_with_client(&format!("http://localhost:{port}"), http_client);
     let key = rand::random::<u16>().to_string();
 
     // Create stream
@@ -69,5 +76,7 @@ async fn stream() {
 
     // Shutdown rocket
     shutdown.notify();
-    rocket_handle.await.expect("Failed to shutdown").unwrap();
+    rocket_handle.await.unwrap().expect("Failed to shutdown");
+
+    Ok(())
 }
