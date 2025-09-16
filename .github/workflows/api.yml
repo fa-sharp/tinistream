@@ -10,7 +10,7 @@ on:
       - Cargo.lock
       - Dockerfile
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
 env:
   RUST_VERSION: 1.85
 
@@ -69,3 +69,57 @@ jobs:
         env:
           STREAMER_API_KEY: ${{ secrets.STREAMER_API_KEY }}
           STREAMER_SECRET_KEY: ${{ secrets.STREAMER_SECRET_KEY }}
+
+  check-openapi:
+    name: Check OpenAPI spec
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    services:
+      valkey:
+        image: valkey/valkey:7.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        run: rustup toolchain install ${{ env.RUST_VERSION }} --profile minimal --no-self-update && rustup default ${{ env.RUST_VERSION }}
+      - name: Setup rust-cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Start API server
+        run: |
+          cargo build -p tinistream
+          cargo run -p tinistream & SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+        env:
+          STREAMER_API_KEY: ${{ secrets.STREAMER_API_KEY }}
+          STREAMER_SECRET_KEY: ${{ secrets.STREAMER_SECRET_KEY }}
+
+      - name: Wait for server to be ready
+        run: |
+          timeout 30 bash -c 'until curl -f http://localhost:8000/api/health; do sleep 2; done'
+
+      - name: Check if OpenAPI spec matches server
+        run: |
+          curl -f -o spec/openapi.json.current http://localhost:8000/openapi.json
+          if ! cmp -s spec/openapi.json spec/openapi.json.current; then
+            echo "::error::OpenAPI spec in repo doesn't match running server. Please update spec/openapi.json"
+            echo "Differences:"
+            diff spec/openapi.json spec/openapi.json.current || true
+            exit 1
+          else
+            echo "::notice::OpenAPI spec in repo matches running server."
+          fi
+          rm spec/openapi.json.current
+
+      - name: Stop API server
+        if: always()
+        run: |
+          if [ ! -z "$SERVER_PID" ]; then
+            kill $SERVER_PID || true
+          fi

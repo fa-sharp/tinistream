@@ -1,0 +1,82 @@
+name: Generate Rust Client
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "spec/openapi.json"
+  workflow_dispatch:
+
+env:
+  RUST_VERSION: 1.85
+
+jobs:
+  generate-client:
+    name: Generate Rust Client
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Rust toolchain
+        run: rustup toolchain install ${{ env.RUST_VERSION }} --profile minimal --no-self-update && rustup default ${{ env.RUST_VERSION }}
+      - name: Setup rust-cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-progenitor
+        run: cargo install cargo-progenitor
+
+      - name: Get OpenAPI spec version
+        id: spec-version
+        run: |
+          VERSION=$(jq -r '.info.version' spec/openapi.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Generate Rust client
+        run: |
+          cargo progenitor \
+            -i spec/openapi.json \
+            -o clients/rust/ \
+            -n tinistream-client \
+            --interface builder \
+            --tags separate \
+            --license-name MIT \
+            --version ${{ steps.spec-version.outputs.version }}
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git add clients/rust/
+          if git diff --cached --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get current date
+        id: date
+        if: steps.changes.outputs.has_changes == 'true'
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore: update Rust client to match OpenAPI spec v${{ steps.spec-version.outputs.version }}"
+          title: "Update Rust client to OpenAPI spec v${{ steps.spec-version.outputs.version }}"
+          body: |
+            This PR was automatically generated to update the Rust client based on changes to the OpenAPI specification.
+
+            **Changes:**
+            - Updated Rust client to match OpenAPI spec version `${{ steps.spec-version.outputs.version }}`
+            - Generated using `cargo-progenitor`
+
+            **Generated on:** ${{ steps.date.outputs.date }}
+
+            Please review the changes and merge if they look correct.
+          branch: update-rust-client-${{ steps.spec-version.outputs.version }}
+          draft: always-true
+          labels: |
+            rust-client
+            openapi
