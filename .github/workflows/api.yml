@@ -72,3 +72,6 @@ jobs:
 
       - name: Run tests
         run: cargo nextest run -p tinistream
+        env:
+          STREAMER_API_KEY: ${{ secrets.STREAMER_API_KEY }}
+          STREAMER_SECRET_KEY: ${{ secrets.STREAMER_SECRET_KEY }}
