@@ -17,6 +17,10 @@ services:
       STREAMER_SERVER_ADDRESS: http://localhost:8080
       STREAMER_REDIS_URL: redis://redis:6379
     env_file: api/.env
+    develop:
+      watch:
+        - path: api/src
+          action: rebuild
     depends_on:
       - redis
 

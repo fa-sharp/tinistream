@@ -16,7 +16,7 @@ use crate::auth::AuthError;
 pub enum ApiError {
     #[error(transparent)]
     Auth(#[from] AuthError),
-    #[error("Redis error: {0}")]
+    #[error(transparent)]
     Redis(#[from] fred::error::Error),
     #[error("Bad request: {0}")]
     BadRequest(String),
@@ -30,6 +30,8 @@ pub enum ApiError {
     ActiveStreamNotFound,
     #[error("Internal server error: {0}")]
     Internal(String),
+    #[error("Failed to deserialize JSON. Received: '{1}' Error: {0}")]
+    Deserialize(serde_json::Error, String),
     #[error(transparent)]
     Decode(#[from] tokio_util::codec::LinesCodecError),
 }
@@ -100,6 +102,10 @@ impl From<ApiError> for ApiErrorResponse {
             ApiError::Decode(error) => {
                 Self::BadRequest(ErrorMessage::new(error.to_string(), "decode-error"))
             }
+            ApiError::Deserialize(error, _) => Self::BadRequest(ErrorMessage::new(
+                format!("JSON parse error: {error}"),
+                "json-error",
+            )),
             ApiError::Redis(_) | ApiError::Internal(_) => Self::Server(ErrorMessage::new(
                 "Internal server error".to_string(),
                 "server-error",

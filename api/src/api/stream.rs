@@ -150,14 +150,19 @@ async fn add_events_json_stream(
     let mut ids: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
 
-    while let Some(event) = data.stream.next().await.transpose()? {
-        let mut entry = vec![(EVENT_KEY, event.event.as_str())];
-        if let Some(data) = event.data.as_deref() {
-            entry.push((DATA_KEY, data));
-        }
-        match redis.write_event(key, entry).await {
-            Ok(Some(id)) => ids.push(id),
-            Ok(None) => break, // stream ended
+    while let Some(res) = data.stream.next().await {
+        match res {
+            Ok(ev) => {
+                let mut entry = vec![(EVENT_KEY, ev.event.as_str())];
+                if let Some(data) = ev.data.as_deref() {
+                    entry.push((DATA_KEY, data));
+                }
+                match redis.write_event(key, entry).await {
+                    Ok(Some(id)) => ids.push(id),
+                    Ok(None) => break, // stream ended
+                    Err(err) => errors.push(err.to_string()),
+                }
+            }
             Err(err) => errors.push(err.to_string()),
         }
     }

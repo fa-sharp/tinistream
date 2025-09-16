@@ -6,15 +6,15 @@ use rocket::{
 };
 use rocket_okapi::request::OpenApiFromData;
 use tokio_stream::StreamExt;
-use tokio_util::codec::{FramedRead, LinesCodec, LinesCodecError};
+use tokio_util::codec::{FramedRead, LinesCodec};
 
-use crate::api::stream::AddEvent;
+use crate::{api::stream::AddEvent, errors::ApiError};
 
 const MAX_STREAM_SIZE: usize = 1 * 1024 * 1024; // 1 MB
 
 /// Data guard for JSON streams
 pub struct JsonStream<'r> {
-    pub stream: BoxStream<'r, Result<AddEvent, LinesCodecError>>,
+    pub stream: BoxStream<'r, Result<AddEvent, ApiError>>,
 }
 
 #[async_trait]
@@ -32,13 +32,15 @@ impl<'r> FromData<'r> for JsonStream<'r> {
         let stream = line_reader.filter_map(|line_result| match line_result {
             Ok(line) => {
                 if line.trim_start().as_bytes().starts_with(b"{") {
-                    if let Ok(ev) = serde_json::from_str::<AddEvent>(&line) {
-                        return Some(Ok(ev));
+                    match serde_json::from_str::<AddEvent>(&line) {
+                        Ok(ev) => Some(Ok(ev)),
+                        Err(err) => Some(Err(ApiError::Deserialize(err, line))),
                     }
+                } else {
+                    None
                 }
-                None
             }
-            Err(e) => Some(Err(e)),
+            Err(e) => Some(Err(e.into())),
         });
 
         Outcome::Success(JsonStream {
