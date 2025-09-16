@@ -30,22 +30,15 @@ jobs:
       #   run: brew link --force libpq
       - name: Setup rust-cache
         uses: Swatinem/rust-cache@v2
-      - name: Install nextest
-        uses: taiki-e/install-action@v2
-        with:
-          tool: nextest@0.9
 
       - name: Run cargo check
-        run: cargo check -p tinistream
+        run: cargo check --workspace
 
-      - name: Run cargo build
+      - name: Run cargo build for API
         run: cargo build -p tinistream
 
       - name: Run cargo build for Rust client
         run: cargo build -p tinistream-client
-
-      - name: Test crate
-        run: cargo nextest run -p tinistream
 
   test-api:
     name: Test API
