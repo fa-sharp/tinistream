@@ -1,6 +1,6 @@
 use rocket::{Ignite, Rocket};
-use tinistreamer::build_rocket;
-use tinistreamer_client::Client;
+use tinistream::build_rocket;
+use tinistream_client::Client;
 use tokio::{net::TcpListener, task::JoinHandle};
 
 /// Run the Rocket server on a random port and return the handle, port, and shutdown signal.

@@ -1,0 +1,81 @@
+name: CI
+on:
+  push:
+    branches: ["main"]
+    tags-ignore: ["v*"]
+    paths:
+      - "api/**"
+      - "clients/rust/**"
+      - Cargo.toml
+      - Cargo.lock
+      - Dockerfile
+  pull_request:
+    types: [opened, synchronize, reopened]
+env:
+  RUST_VERSION: 1.85
+
+jobs:
+  build-api:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    name: Build API on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        run: rustup toolchain install ${{ env.RUST_VERSION }} --profile minimal --no-self-update && rustup default ${{ env.RUST_VERSION }}
+      # - name: Setup build dependencies on macOS
+      #   if: startsWith(runner.os, 'macOS')
+      #   run: brew link --force libpq
+      - name: Setup rust-cache
+        uses: Swatinem/rust-cache@v2
+      - name: Install nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest@0.9
+
+      - name: Run cargo check
+        run: cargo check -p tinistream
+
+      - name: Run cargo build
+        run: cargo build -p tinistream
+
+      - name: Run cargo build for Rust client
+        run: cargo build -p tinistream-client
+
+      - name: Test crate
+        run: cargo nextest run -p tinistream
+
+  test-api:
+    name: Test API
+    runs-on: ubuntu-latest
+    services:
+      valkey:
+        image: valkey/valkey:7.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        run: rustup toolchain install ${{ env.RUST_VERSION }} --profile minimal --no-self-update && rustup default ${{ env.RUST_VERSION }}
+      # - name: Setup build dependencies on macOS
+      #   if: startsWith(runner.os, 'macOS')
+      #   run: brew link --force libpq
+      - name: Setup rust-cache
+        uses: Swatinem/rust-cache@v2
+      - name: Install nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest@0.9
+
+      - name: Build tests
+        run: cargo build --tests -p tinistream
+
+      - name: Run tests
+        run: cargo nextest run -p tinistream

@@ -11,7 +11,7 @@ COPY ./api/src api/src
 COPY ./clients/rust/Cargo.toml clients/rust/Cargo.toml
 COPY ./clients/rust/src clients/rust/src
 
-ARG pkg=tinistreamer
+ARG pkg=tinistream
 
 RUN apt-get update -qq && apt-get install -y -qq pkg-config && apt-get clean
 RUN --mount=type=cache,id=rust_target,target=/app/target \

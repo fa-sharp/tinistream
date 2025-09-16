@@ -2327,7 +2327,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tinistreamer"
+name = "tinistream"
 version = "0.1.1"
 dependencies = [
  "aes-gcm",
@@ -2347,7 +2347,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "time",
- "tinistreamer-client",
+ "tinistream-client",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -2357,7 +2357,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tinistreamer-client"
+name = "tinistream-client"
 version = "0.1.1"
 dependencies = [
  "bytes",

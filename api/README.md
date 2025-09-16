@@ -1,4 +1,4 @@
-# tinistreamer
+# tinistream
 
 A streaming microservice built with Rust, powered by Redis streams.
 
@@ -53,8 +53,8 @@ src/
 
 Build and run with Docker:
 ```bash
-docker build -t tinistreamer .
-docker run -p 8000:8000 tinistreamer
+docker build -t tinistream .
+docker run -p 8000:8000 tinistream
 ```
 
 ### Configuration

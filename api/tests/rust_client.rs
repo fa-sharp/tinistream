@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use eventsource_stream::Eventsource;
 use rocket::futures::StreamExt;
-use tinistreamer_client::{types::*, ClientClientExt, ClientStreamExt};
+use tinistream_client::{types::*, ClientClientExt, ClientStreamExt};
 
 mod common;
 

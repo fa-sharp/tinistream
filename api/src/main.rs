@@ -1,5 +1,5 @@
 use rocket::launch;
-use tinistreamer::build_rocket;
+use tinistream::build_rocket;
 
 #[launch]
 fn rocket() -> _ {
