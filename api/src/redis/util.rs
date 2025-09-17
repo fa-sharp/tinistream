@@ -35,3 +35,23 @@ pub fn stream_event_to_sse((id, fields): RedisEntry) -> rocket::response::stream
         .event(event.unwrap_or_else(|| "unknown".into()))
         .id((*id).to_owned())
 }
+
+pub fn stream_event_to_ws(entry: RedisEntry) -> rocket_ws::result::Result<rocket_ws::Message> {
+    Ok(rocket_ws::Message::Text(stream_event_to_json(entry)))
+}
+
+pub fn stream_event_to_json((id, mut fields): RedisEntry) -> String {
+    fields.insert("id".into(), id);
+    serde_json::to_string(&fields).unwrap_or_default()
+}
+
+pub fn stream_events_to_json(entries: Vec<RedisEntry>) -> String {
+    let json_events = entries
+        .into_iter()
+        .map(|(id, mut fields)| {
+            fields.insert("id".into(), id);
+            fields
+        })
+        .collect::<Vec<_>>();
+    serde_json::to_string(&json_events).unwrap_or_default()
+}

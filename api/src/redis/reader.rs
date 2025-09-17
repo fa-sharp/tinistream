@@ -1,7 +1,7 @@
-use fred::{
-    bytes_utils::Str,
-    prelude::{HashesInterface, StreamsInterface},
-};
+use std::collections::HashMap;
+
+use bytes_utils::Str;
+use fred::prelude::{HashesInterface, StreamsInterface};
 use rocket::{
     async_stream, async_trait,
     futures::stream::Stream,
@@ -11,6 +11,7 @@ use rocket::{
     Request,
 };
 use rocket_okapi::OpenApiFromRequest;
+use rocket_ws::{result::Error as WsError, Message as WsMessage};
 
 use crate::{errors::ApiError, redis::*};
 
@@ -49,16 +50,42 @@ impl RedisReader {
         Self { client }
     }
 
-    /// Retrieve the previous SSE events from the given Redis stream, taking an optional
-    /// event ID to start from.
-    ///
-    /// Returns a tuple containing the previous events, the last event ID, and a boolean
-    /// indicating if the stream has already ended.
+    /// Retrieve the previous events of the stream in SSE format
     pub async fn prev_sse_events(
         &self,
         key: &str,
         start_event_id: Option<&str>,
     ) -> Result<(Vec<SseEvent>, Str, bool), ApiError> {
+        let (prev_events, last_event_id, is_end) =
+            self.get_prev_events(key, start_event_id).await?;
+        let sse_events = prev_events
+            .into_iter()
+            .map(stream_event_to_sse)
+            .collect::<Vec<_>>();
+
+        Ok((sse_events, last_event_id, is_end))
+    }
+
+    /// Retrieve the previous events of the stream in JSON format
+    pub async fn prev_json_events(
+        &self,
+        key: &str,
+        start_event_id: Option<&str>,
+    ) -> Result<(String, Str, bool), ApiError> {
+        let (prev_events, last_event_id, is_end) =
+            self.get_prev_events(key, start_event_id).await?;
+        let json_events = stream_events_to_json(prev_events);
+
+        Ok((json_events, last_event_id, is_end))
+    }
+
+    /// Returns a tuple containing the previous events in the stream, the last event ID,
+    /// and a boolean indicating if the stream has already ended.
+    async fn get_prev_events(
+        &self,
+        key: &str,
+        start_event_id: Option<&str>,
+    ) -> Result<(Vec<RedisEntry>, Str, bool), ApiError> {
         let start_event_id = start_event_id.unwrap_or("0-0");
         let pipeline = self.client.pipeline();
         let _: () = pipeline.xread(None, None, key, start_event_id).await?;
@@ -68,22 +95,16 @@ impl RedisReader {
         let (_key, prev_events) = xread_response
             .and_then(|mut streams| streams.pop())
             .ok_or(ApiError::StreamNotFound)?;
-
         let last_event_id = prev_events
             .last()
             .map(|(id, _)| id.to_owned())
             .unwrap_or_else(|| start_event_id.into());
-        let sse_events = prev_events
-            .into_iter()
-            .map(stream_event_to_sse)
-            .collect::<Vec<_>>();
-        let is_end = status.is_none_or(|s| s != StreamStatus::Active.as_str());
+        let is_end = status.is_none_or(|s| *s != StreamStatus::Active);
 
-        Ok((sse_events, last_event_id, is_end))
+        Ok((prev_events, last_event_id, is_end))
     }
 
-    /// Listen for new events in the Redis stream using blocking `xread` commands, and
-    /// return a stream of SSE events.
+    /// Listen for new events in the Redis stream and return SSE events.
     pub fn stream_sse_events(self, key: &str, last_event_id: &str) -> impl Stream<Item = SseEvent> {
         let key = key.to_owned();
         let mut last_event_id = last_event_id.to_owned();
@@ -101,6 +122,41 @@ impl RedisReader {
                     }
                     Err(err) => {
                         yield SseEvent::data(err.to_string()).event("error");
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Listen for new events in the Redis stream and return JSON-serialized WebSocket messages.
+    pub fn stream_ws_events(
+        self,
+        key: &str,
+        last_event_id: &str,
+    ) -> impl Stream<Item = Result<WsMessage, WsError>> {
+        let key = key.to_owned();
+        let mut last_event_id = last_event_id.to_owned();
+
+        async_stream::stream! {
+            while let Some(res) = self.next_event(&key, &last_event_id).await {
+                match res {
+                    Ok(event) if is_end_event(&event) => {
+                        yield stream_event_to_ws(event);
+                        yield Ok(WsMessage::Close(None));
+                        break;
+                    }
+                    Ok((id, data)) => {
+                        last_event_id = (*id).to_owned();
+                        yield stream_event_to_ws((id, data));
+                    }
+                    Err(err) => {
+                        let error = err.to_string();
+                        let error_hash = HashMap::from([ERROR_ENTRY, (DATA_KEY, &error)]);
+                        if let Ok(error_str) = serde_json::to_string(&error_hash) {
+                            yield Ok(WsMessage::Text(error_str));
+                        }
+                        yield Ok(WsMessage::Close(None));
                         break;
                     }
                 }

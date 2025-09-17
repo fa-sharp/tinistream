@@ -10,8 +10,6 @@ use tokio_util::codec::{FramedRead, LinesCodec};
 
 use crate::{api::stream::AddEvent, errors::ApiError};
 
-const MAX_STREAM_SIZE: usize = 1 * 1024 * 1024; // 1 MB
-
 /// Data guard for JSON streams
 pub struct JsonStream<'r> {
     pub stream: BoxStream<'r, Result<AddEvent, ApiError>>,
@@ -25,7 +23,7 @@ impl<'r> FromData<'r> for JsonStream<'r> {
         _req: &'r Request<'_>,
         data: rocket::Data<'r>,
     ) -> Outcome<'r, Self, Self::Error> {
-        let data = data.open(MAX_STREAM_SIZE.into());
+        let data = data.open(super::MAX_STREAM_SIZE.into());
         let reader = tokio::io::BufReader::new(data);
         let line_reader = FramedRead::new(reader, LinesCodec::new());
 

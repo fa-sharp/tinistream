@@ -1,6 +1,9 @@
+use std::time::Duration;
+
+use reqwest::header::HeaderMap;
 use rocket::{Ignite, Rocket};
 use tinistream::build_rocket;
-use tinistream_client::Client;
+use tinistream_client::{Client, ClientStreamExt};
 use tokio::{net::TcpListener, task::JoinHandle};
 
 /// Run the Rocket server on a random port and return the handle, port, and shutdown signal.
@@ -40,18 +43,45 @@ pub fn setup_backend_client(port: u16) -> Client {
     client
 }
 
-/// Setup the tinistream Rust client with a frontend token
-pub fn setup_frontend_client(port: u16, token: &str) -> Client {
-    use reqwest::header::HeaderMap;
-
+/// Setup reqwest client for frontend API requests
+pub fn setup_frontend_reqwest(token: &str) -> reqwest::Client {
     let mut token_header = HeaderMap::new();
     token_header.insert("Authorization", format!("Bearer {token}").parse().unwrap());
-
     let http_client = reqwest::Client::builder()
         .default_headers(token_header)
         .build()
         .expect("build client");
-    let client = Client::new_with_client(&format!("http://localhost:{port}"), http_client);
+    http_client
+}
 
+/// Setup the tinistream Rust client with a frontend token
+pub fn setup_frontend_client(port: u16, token: &str) -> Client {
+    let http_client = setup_frontend_reqwest(token);
+    let client = Client::new_with_client(&format!("http://localhost:{port}"), http_client);
     client
+}
+
+/// Spawn task to add 10 `(test_event, test_data)` events to the Redis stream on an interval
+pub fn add_events_task(client: Client, key: &str) -> tokio::task::JoinHandle<()> {
+    use tinistream_client::types::*;
+
+    let key = key.to_owned();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_millis(500));
+        for _ in 0..10 {
+            interval.tick().await;
+            let test_event = AddEvent::builder()
+                .data("test_data".to_owned())
+                .event("test_event");
+            let body = AddEventsRequest::builder()
+                .key(&key)
+                .events(vec![test_event.try_into().unwrap()]);
+            let _ = client.add_events().body(body).send().await;
+        }
+        let _ = client
+            .end_stream()
+            .body(StreamRequest::builder().key(key))
+            .send()
+            .await;
+    })
 }

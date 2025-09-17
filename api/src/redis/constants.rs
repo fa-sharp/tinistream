@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use fred::bytes_utils::Str;
+use bytes_utils::Str;
 use schemars::JsonSchema;
 use serde::Serialize;
 
@@ -17,6 +17,7 @@ pub const DATA_KEY: &str = "data";
 pub const START_ENTRY: (&str, &str) = (EVENT_KEY, "start");
 pub const CANCEL_ENTRY: (&str, &str) = (EVENT_KEY, "cancel");
 pub const END_ENTRY: (&str, &str) = (EVENT_KEY, "end");
+pub const ERROR_ENTRY: (&str, &str) = (EVENT_KEY, "error");
 
 /// Max capacity of the Redis stream when adding new entries
 pub const XADD_CAP: (&str, &str, u32) = ("MAXLEN", "~", 500);
