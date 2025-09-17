@@ -44,6 +44,7 @@ jobs:
             --tags separate \
             --license-name MIT \
             --version ${{ steps.spec-version.outputs.version }} || true
+          rustup component add rustfmt
           rustfmt clients/rust/src/lib.rs --edition 2021
 
       - name: Check for changes
