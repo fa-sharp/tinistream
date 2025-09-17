@@ -1,4 +1,4 @@
-name: Generate Rust Client
+name: Rust Client
 
 on:
   push:
@@ -42,7 +42,7 @@ jobs:
             --interface builder \
             --tags separate \
             --license-name MIT \
-            --version ${{ steps.spec-version.outputs.version }}
+            --version ${{ steps.spec-version.outputs.version }} || true
 
       - name: Check for changes
         id: changes
