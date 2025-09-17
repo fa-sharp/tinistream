@@ -2,14 +2,14 @@ use rocket::{futures::StreamExt, get, post, serde::json::Json, Route, State};
 use rocket_okapi::{okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use time::ext::NumericalDuration;
+use time::{ext::NumericalDuration, format_description::well_known, UtcDateTime};
 
 use crate::{
     auth::{create_client_token, ApiKeyAuth, Crypto},
     config::AppConfig,
     data::JsonStream,
     errors::ApiError,
-    redis::{stream_sse_url, RedisClient, StreamStatus, DATA_KEY, EVENT_KEY},
+    redis::*,
 };
 
 pub fn get_routes() -> (Vec<Route>, OpenApi) {
@@ -18,6 +18,7 @@ pub fn get_routes() -> (Vec<Route>, OpenApi) {
         create_stream,
         create_token,
         get_stream_info,
+        get_stream_events,
         add_events,
         add_events_json_stream,
         cancel_stream,
@@ -62,6 +63,35 @@ async fn get_stream_info(
         length,
         ttl,
     }))
+}
+
+/// # Get stream events
+/// Get all events so far in a stream
+#[openapi(tag = "Stream")]
+#[get("/events?<key>")]
+async fn get_stream_events(
+    _api_key: ApiKeyAuth,
+    key: &str,
+    reader: RedisReader,
+) -> Result<Json<Vec<StreamEvent>>, ApiError> {
+    let (prev_events, _, _) = reader.get_prev_events(key, None).await?;
+    let events = prev_events
+        .into_iter()
+        .filter_map(|(id, mut data)| {
+            let unix_millis: i64 = id.split('-').next().unwrap_or_default().parse().ok()?;
+            let date_time = UtcDateTime::from_unix_timestamp(unix_millis / 1000).ok()?;
+            let iso_time = date_time.format(&well_known::Rfc3339).ok()?;
+            let event = StreamEvent {
+                id: (*id).to_owned(),
+                time: iso_time,
+                event: data.remove(EVENT_KEY).as_deref().map(|e| e.to_owned())?,
+                data: data.remove(DATA_KEY).as_deref().map(|d| d.to_owned()),
+            };
+            Some(event)
+        })
+        .collect();
+
+    Ok(Json(events))
 }
 
 /// # Create stream
@@ -215,6 +245,19 @@ pub struct StreamInfo {
     length: u64,
     /// Expiration of the stream
     ttl: i64,
+}
+
+#[derive(JsonSchema, Serialize)]
+pub struct StreamEvent {
+    /// ID of the event
+    id: String,
+    /// Time of the event (ISO 8601 format)
+    time: String,
+    /// Name/type of the event
+    event: String,
+    /// Event data
+    #[serde(skip_serializing_if = "Option::is_none")]
+    data: Option<String>,
 }
 
 #[derive(JsonSchema, Deserialize)]

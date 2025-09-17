@@ -81,7 +81,7 @@ impl RedisReader {
 
     /// Returns a tuple containing the previous events in the stream, the last event ID,
     /// and a boolean indicating if the stream has already ended.
-    async fn get_prev_events(
+    pub async fn get_prev_events(
         &self,
         key: &str,
         start_event_id: Option<&str>,

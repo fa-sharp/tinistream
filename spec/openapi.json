@@ -2,7 +2,7 @@
   "openapi": "3.0.0",
   "info": {
     "title": "tinistream",
-    "version": "0.1.2"
+    "version": "0.1.3"
   },
   "paths": {
     "/api/health": {
@@ -432,6 +432,96 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StreamInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Incorrectly formatted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/stream/events": {
+      "get": {
+        "tags": [
+          "Stream"
+        ],
+        "summary": "Get stream events",
+        "description": "Get all events so far in a stream",
+        "operationId": "get_stream_events",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StreamEvent"
+                  }
                 }
               }
             }
@@ -982,6 +1072,33 @@
         "properties": {
           "key": {
             "type": "string"
+          }
+        }
+      },
+      "StreamEvent": {
+        "type": "object",
+        "required": [
+          "event",
+          "id",
+          "time"
+        ],
+        "properties": {
+          "id": {
+            "description": "ID of the event",
+            "type": "string"
+          },
+          "time": {
+            "description": "Time of the event (ISO 8601 format)",
+            "type": "string"
+          },
+          "event": {
+            "description": "Name/type of the event",
+            "type": "string"
+          },
+          "data": {
+            "description": "Event data",
+            "type": "string",
+            "nullable": true
           }
         }
       },

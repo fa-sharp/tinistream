@@ -34,15 +34,17 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Generate Rust client
+        id: generate
         run: |
-          cargo progenitor \
+          output=$(cargo progenitor \
             -i spec/openapi.json \
             -o clients/rust/ \
             -n tinistream-client \
             --interface builder \
             --tags separate \
             --license-name MIT \
-            --version ${{ steps.spec-version.outputs.version }} || true
+            --version ${{ steps.spec-version.outputs.version }}) || true
+          echo "output=$output" >> $GITHUB_OUTPUT
 
       - name: Check for changes
         id: changes
@@ -71,6 +73,11 @@ jobs:
             **Changes:**
             - Updated Rust client to match OpenAPI spec version `${{ steps.spec-version.outputs.version }}`
             - Generated using `cargo-progenitor`
+
+            **Output of `cargo-progenitor`**
+            ```
+            ${{ steps.generate.outputs.output }}
+            ```
 
             **Generated on:** ${{ steps.date.outputs.date }}
 
