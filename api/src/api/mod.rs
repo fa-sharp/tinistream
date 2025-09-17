@@ -7,5 +7,7 @@ pub mod stream;
 pub use stream::get_routes as stream_routes;
 pub mod client;
 pub use client::get_routes as client_routes;
+pub mod event;
+pub use event::get_routes as event_routes;
 pub mod info;
 pub use info::get_routes as info_routes;

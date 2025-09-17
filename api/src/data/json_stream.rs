@@ -8,7 +8,7 @@ use rocket_okapi::request::OpenApiFromData;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, LinesCodec};
 
-use crate::{api::stream::AddEvent, errors::ApiError};
+use crate::{api::event::AddEvent, errors::ApiError};
 
 /// Data guard for JSON streams
 pub struct JsonStream<'r> {

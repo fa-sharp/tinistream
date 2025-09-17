@@ -31,7 +31,8 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         rocket, "/", openapi_settings,
         "/api" => api::info_routes(),
         "/api/client" => api::client_routes(),
-        "/api/stream" => api::stream_routes()
+        "/api/stream" => api::stream_routes(),
+        "/api/event" => api::event_routes()
     };
 
     rocket

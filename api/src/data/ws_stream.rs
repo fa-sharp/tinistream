@@ -6,7 +6,7 @@ use serde::Serialize;
 use tokio_stream::StreamExt;
 
 use crate::{
-    api::stream::AddEvent,
+    api::event::AddEvent,
     redis::{RedisWriter, DATA_KEY, EVENT_KEY},
 };
 
