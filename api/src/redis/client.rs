@@ -59,30 +59,6 @@ impl RedisClient {
         Ok(responses.swap_remove(1).convert()?)
     }
 
-    /// Writes a single event to the stream, while checking if the stream is active.
-    /// Returns the ID of the written event, or `None` if the stream is not active.
-    pub async fn write_event(
-        &self,
-        key: &str,
-        event: Vec<(&str, &str)>,
-    ) -> FredResult<Option<String>> {
-        let trx = self.client.multi();
-        let _: () = trx.hget(meta_key(key), META_STATUS_FIELD).await?;
-        let _: () = trx.xadd(key, true, XADD_CAP, "*", event).await?;
-        let (status, id): (Option<String>, Option<String>) = trx.exec(true).await?;
-
-        match status {
-            Some(status) if *status == StreamStatus::Active => Ok(id),
-            _ => {
-                if let Some(id) = id {
-                    // Stream is not active, delete the added event
-                    let _: () = self.client.xdel(key, id).await?;
-                }
-                Ok(None)
-            }
-        }
-    }
-
     /// Write multiple events to the stream.
     /// Returns the IDs of the written events.
     pub async fn write_events(

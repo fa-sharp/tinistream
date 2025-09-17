@@ -3,12 +3,14 @@ mod constants;
 mod last_event_id;
 mod reader;
 mod util;
+mod writer;
 
 pub use client::RedisClient;
 pub use constants::*;
 pub use last_event_id::LastEventIdHeader;
 pub use reader::RedisReader;
 pub use util::*;
+pub use writer::RedisWriter;
 
 use fred::prelude::ClientLike;
 use rocket::fairing::AdHoc;

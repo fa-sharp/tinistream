@@ -28,7 +28,7 @@ pub const META_ACTIVE: (&str, &str) = (META_STATUS_FIELD, StreamStatus::Active.a
 pub const META_CANCELLED: (&str, &str) = (META_STATUS_FIELD, StreamStatus::Cancelled.as_str());
 pub const META_ENDED: (&str, &str) = (META_STATUS_FIELD, StreamStatus::Ended.as_str());
 
-#[derive(Debug, JsonSchema, Serialize)]
+#[derive(Debug, PartialEq, JsonSchema, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum StreamStatus {
     Active,
@@ -42,11 +42,6 @@ impl StreamStatus {
             StreamStatus::Cancelled => "cancelled",
             StreamStatus::Ended => "ended",
         }
-    }
-}
-impl PartialEq for StreamStatus {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_str() == other.as_str()
     }
 }
 impl PartialEq<str> for StreamStatus {

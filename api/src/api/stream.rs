@@ -1,4 +1,9 @@
-use rocket::{futures::StreamExt, get, post, serde::json::Json, Route, State};
+use rocket::{
+    futures::{FutureExt, StreamExt},
+    get, post,
+    serde::json::Json,
+    Route, State,
+};
 use rocket_okapi::{okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -7,7 +12,7 @@ use time::{ext::NumericalDuration, format_description::well_known, UtcDateTime};
 use crate::{
     auth::{create_client_token, ApiKeyAuth, Crypto},
     config::AppConfig,
-    data::JsonStream,
+    data::{process_websocket_events, JsonStream},
     errors::ApiError,
     redis::*,
 };
@@ -21,6 +26,7 @@ pub fn get_routes() -> (Vec<Route>, OpenApi) {
         get_stream_events,
         add_events,
         add_events_json_stream,
+        add_events_websocket,
         cancel_stream,
         end_stream
     ]
@@ -54,7 +60,7 @@ async fn get_stream_info(
     redis: RedisClient,
 ) -> Result<Json<StreamInfo>, ApiError> {
     let (status, length, ttl) = redis.stream_info(key).await?;
-    if status.is_none_or(|s| s != StreamStatus::Active.as_str()) {
+    if status.is_none_or(|s| *s != StreamStatus::Active) {
         return Err(ApiError::ActiveStreamNotFound);
     }
 
@@ -164,7 +170,7 @@ async fn add_events(
 }
 
 /// # Add events JSON stream
-/// Add events to a stream via a JSON stream
+/// Add events to a stream via a JSON stream. Events are sent as newline-delimited JSON objects.
 #[openapi(tag = "Stream")]
 #[post("/add/json-stream?<key>", data = "<data>")]
 async fn add_events_json_stream(
@@ -172,6 +178,7 @@ async fn add_events_json_stream(
     key: &str,
     mut data: JsonStream<'_>,
     redis: RedisClient,
+    writer: RedisWriter,
 ) -> Result<Json<AddEventsStreamResponse>, ApiError> {
     if !redis.is_active(key).await? {
         return Err(ApiError::ActiveStreamNotFound);
@@ -179,7 +186,6 @@ async fn add_events_json_stream(
 
     let mut ids: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
-
     while let Some(res) = data.stream.next().await {
         match res {
             Ok(ev) => {
@@ -187,7 +193,7 @@ async fn add_events_json_stream(
                 if let Some(data) = ev.data.as_deref() {
                     entry.push((DATA_KEY, data));
                 }
-                match redis.write_event(key, entry).await {
+                match writer.write_event(key, entry).await {
                     Ok(Some(id)) => ids.push(id),
                     Ok(None) => break, // stream ended
                     Err(err) => errors.push(err.to_string()),
@@ -198,6 +204,27 @@ async fn add_events_json_stream(
     }
 
     Ok(Json(AddEventsStreamResponse { ids, errors }))
+}
+
+/// # Add events WebSocket
+/// Add events to a stream via a WebSocket connection. Each event is sent as a JSON message.
+#[openapi(skip)] // TODO websocket auto-docs aren't great
+#[get("/add/ws-stream?<key>")]
+async fn add_events_websocket(
+    _api_key: ApiKeyAuth,
+    key: &str,
+    ws: rocket_ws::WebSocket,
+    redis: RedisClient,
+    writer: RedisWriter,
+) -> Result<rocket_ws::Channel<'static>, ApiError> {
+    if !redis.is_active(key).await? {
+        return Err(ApiError::ActiveStreamNotFound);
+    }
+
+    let key = key.to_owned();
+    let channel = ws.channel(move |stream| process_websocket_events(stream, writer, key).boxed());
+
+    Ok(channel)
 }
 
 /// # Cancel stream
