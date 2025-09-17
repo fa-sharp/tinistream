@@ -2,7 +2,7 @@ use rocket::{get, post, serde::json::Json, Route, State};
 use rocket_okapi::{okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use time::{ext::NumericalDuration, format_description::well_known, UtcDateTime};
+use time::{format_description::well_known, UtcDateTime};
 
 use crate::{
     auth::{create_client_token, ApiKeyAuth, Crypto},
@@ -107,11 +107,14 @@ async fn create_stream(
     }
     redis.start_stream(&input.key, config.ttl).await?;
 
-    let url = stream_sse_url(&input.key, &config.server_address);
-    let plaintext_token = create_client_token(&input.key, 10.minutes());
+    let plaintext_token = create_client_token(&input.key, config.ttl);
     let token = crypto.encrypt_base64(&plaintext_token)?;
 
-    Ok(Json(StreamAccessResponse { url, token }))
+    Ok(Json(StreamAccessResponse {
+        sse_url: stream_sse_url(&input.key, &config.server_address),
+        ws_url: stream_ws_url(&input.key, &config.server_address),
+        token,
+    }))
 }
 
 /// # Create stream token
@@ -124,11 +127,14 @@ async fn create_token(
     crypto: &State<Crypto>,
     config: &State<AppConfig>,
 ) -> Result<Json<StreamAccessResponse>, ApiError> {
-    let url = stream_sse_url(&input.key, &config.server_address);
-    let plaintext_token = create_client_token(&input.key, 10.minutes());
+    let plaintext_token = create_client_token(&input.key, config.ttl);
     let token = crypto.encrypt_base64(&plaintext_token)?;
 
-    Ok(Json(StreamAccessResponse { url, token }))
+    Ok(Json(StreamAccessResponse {
+        sse_url: stream_sse_url(&input.key, &config.server_address),
+        ws_url: stream_ws_url(&input.key, &config.server_address),
+        token,
+    }))
 }
 
 /// # Cancel stream
@@ -198,9 +204,12 @@ struct StreamRequest {
 
 #[derive(JsonSchema, Serialize, Deserialize)]
 struct StreamAccessResponse {
-    /// URL to connect to the stream
-    url: String,
-    /// Bearer token to access the stream
+    /// URL for the client to connect to the stream via SSE
+    sse_url: String,
+    /// URL for the client to connect to the stream via WebSocket
+    ws_url: String,
+    /// Client token to access the stream. Can be used as a Bearer token
+    /// in the Authorization header (recommended) or as the `token` query parameter.
     token: String,
 }
 

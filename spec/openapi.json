@@ -2,7 +2,7 @@
   "openapi": "3.0.0",
   "info": {
     "title": "tinistream",
-    "version": "0.1.4"
+    "version": "0.1.5"
   },
   "paths": {
     "/api/health": {
@@ -1050,16 +1050,21 @@
       "StreamAccessResponse": {
         "type": "object",
         "required": [
+          "sse_url",
           "token",
-          "url"
+          "ws_url"
         ],
         "properties": {
-          "url": {
-            "description": "URL to connect to the stream",
+          "sse_url": {
+            "description": "URL for the client to connect to the stream via SSE",
+            "type": "string"
+          },
+          "ws_url": {
+            "description": "URL for the client to connect to the stream via WebSocket",
             "type": "string"
           },
           "token": {
-            "description": "Bearer token to access the stream",
+            "description": "Client token to access the stream. Can be used as a Bearer token in the Authorization header (recommended) or as the `token` query parameter.",
             "type": "string"
           }
         }

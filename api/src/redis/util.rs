@@ -20,6 +20,11 @@ pub fn stream_sse_url(key: &str, base_url: &str) -> String {
     format!("{base_url}/api/client/sse?key={}", urlencoding::encode(key))
 }
 
+/// Get the URL for streaming WebSocket events from the given Redis stream
+pub fn stream_ws_url(key: &str, base_url: &str) -> String {
+    format!("{base_url}/api/client/ws?key={}", urlencoding::encode(key))
+}
+
 /// Convert a Redis stream event into a Rocket SSE event. Expects the event data to contain
 /// an "event" and "data" field.
 pub fn stream_event_to_sse((id, fields): RedisEntry) -> rocket::response::stream::Event {

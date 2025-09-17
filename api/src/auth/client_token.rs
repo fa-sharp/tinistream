@@ -54,8 +54,9 @@ impl<'r> FromRequest<'r> for ClientTokenAuth {
 
 /// Create a plaintext client token that gives access to the given stream key
 /// and is valid for the given length of time
-pub fn create_client_token(key: &str, ttl: Duration) -> String {
-    let unix_expires = (UtcDateTime::now() + ttl).unix_timestamp();
+pub fn create_client_token(key: &str, ttl: u32) -> String {
+    let ttl_duration = Duration::seconds(ttl.into());
+    let unix_expires = (UtcDateTime::now() + ttl_duration).unix_timestamp();
     format!("{unix_expires}:{key}")
 }
 
