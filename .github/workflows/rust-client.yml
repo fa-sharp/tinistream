@@ -44,7 +44,7 @@ jobs:
             --tags separate \
             --license-name MIT \
             --version ${{ steps.spec-version.outputs.version }}) || true
-          echo "output=$output" >> $GITHUB_OUTPUT
+          printf '%s\n' "$output" >> $GITHUB_OUTPUT
 
       - name: Check for changes
         id: changes

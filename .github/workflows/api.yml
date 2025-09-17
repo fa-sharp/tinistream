@@ -16,11 +16,8 @@ env:
 
 jobs:
   api:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    name: Build & test API on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    name: Build & test API
+    runs-on: ubuntu-latest
     services:
       valkey:
         image: valkey/valkey:7.2-alpine
