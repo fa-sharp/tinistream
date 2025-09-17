@@ -15,31 +15,12 @@ env:
   RUST_VERSION: 1.85
 
 jobs:
-  build-api:
+  api:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-    name: Build API on ${{ matrix.os }}
+    name: Build & test API on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Rust toolchain
-        run: rustup toolchain install ${{ env.RUST_VERSION }} --profile minimal --no-self-update && rustup default ${{ env.RUST_VERSION }}
-      - name: Setup rust-cache
-        uses: Swatinem/rust-cache@v2
-
-      - name: Run cargo check
-        run: cargo check --workspace
-
-      - name: Run cargo build for API
-        run: cargo build -p tinistream
-
-      - name: Run cargo build for Rust client
-        run: cargo build -p tinistream-client
-
-  test-api:
-    name: Test API
-    runs-on: ubuntu-latest
     services:
       valkey:
         image: valkey/valkey:7.2-alpine
@@ -61,10 +42,19 @@ jobs:
         with:
           tool: nextest@0.9
 
-      - name: Build tests
+      - name: Run cargo check
+        run: cargo check --workspace
+
+      - name: Run cargo build for API
+        run: cargo build -p tinistream
+
+      - name: Run cargo build for Rust client
+        run: cargo build -p tinistream-client
+
+      - name: Build API tests
         run: cargo build --tests -p tinistream
 
-      - name: Run tests
+      - name: Run API tests
         run: cargo nextest run -p tinistream
         env:
           STREAMER_API_KEY: ${{ secrets.STREAMER_API_KEY }}
