@@ -1,7 +1,4 @@
-use std::future::Future;
-
 use rocket::futures::SinkExt;
-use rocket_ws::{stream::DuplexStream, Message};
 use serde::Serialize;
 use tokio_stream::StreamExt;
 
@@ -28,64 +25,64 @@ impl EventResponse {
 }
 
 /// Ingest events from a WebSocket stream and send them to Redis.
-pub fn process_websocket_events(
-    mut stream: DuplexStream,
+pub async fn process_websocket_events(
+    mut stream: rocket_ws::stream::DuplexStream,
     writer: RedisWriter,
     key: String,
-) -> impl Future<Output = rocket_ws::result::Result<()>> {
-    async move {
-        while let Some(res) = stream.next().await {
-            match res {
-                Ok(message) => {
-                    let text = match message {
-                        Message::Text(text) => text,
-                        Message::Close(_) => break,
-                        _ => continue,
-                    };
-                    let ev = match serde_json::from_str::<AddEvent>(&text) {
-                        Ok(event) => event,
-                        Err(err) => {
-                            let error = EventResponse::error(format!("Invalid JSON: {err}"));
-                            let text = serde_json::to_string(&error).unwrap_or_default();
-                            stream.send(Message::Text(text)).await?;
-                            continue;
-                        }
-                    };
+) -> rocket_ws::result::Result<()> {
+    use rocket_ws::Message;
 
-                    let mut entry = vec![(EVENT_KEY, ev.event.as_str())];
-                    if let Some(data) = ev.data.as_deref() {
-                        entry.push((DATA_KEY, data));
+    while let Some(res) = stream.next().await {
+        match res {
+            Ok(message) => {
+                let text = match message {
+                    Message::Text(text) => text,
+                    Message::Close(_) => break,
+                    _ => continue,
+                };
+                let ev: AddEvent = match serde_json::from_str(&text) {
+                    Ok(event) => event,
+                    Err(err) => {
+                        let error = EventResponse::error(format!("Invalid JSON: {err}"));
+                        let text = serde_json::to_string(&error).unwrap_or_default();
+                        stream.send(Message::Text(text)).await?;
+                        continue;
                     }
+                };
 
-                    match writer.write_event(&key, entry).await {
-                        Ok(Some(id)) => {
-                            let text = serde_json::to_string(&EventResponse::success(id))
-                                .unwrap_or_default();
-                            stream.send(Message::Text(text)).await?;
-                        }
-                        Ok(None) => {
-                            let error = EventResponse::error("Stream not active".to_owned());
-                            let text = serde_json::to_string(&error).unwrap_or_default();
-                            stream.send(Message::Text(text)).await?;
-                            stream.send(Message::Close(None)).await?;
-                        }
-                        Err(err) => {
-                            let error = EventResponse::error(err.to_string());
-                            let text = serde_json::to_string(&error).unwrap_or_default();
-                            stream.send(Message::Text(text)).await?;
-                        }
+                let mut entry = vec![(EVENT_KEY, ev.event.as_str())];
+                if let Some(data) = ev.data.as_deref() {
+                    entry.push((DATA_KEY, data));
+                }
+
+                match writer.write_event(&key, entry).await {
+                    Ok(Some(id)) => {
+                        let text =
+                            serde_json::to_string(&EventResponse::success(id)).unwrap_or_default();
+                        stream.send(Message::Text(text)).await?;
+                    }
+                    Ok(None) => {
+                        let error = EventResponse::error("Stream not active".into());
+                        let text = serde_json::to_string(&error).unwrap_or_default();
+                        stream.send(Message::Text(text)).await?;
+                        stream.send(Message::Close(None)).await?;
+                    }
+                    Err(err) => {
+                        let error = EventResponse::error(err.to_string());
+                        let text = serde_json::to_string(&error).unwrap_or_default();
+                        stream.send(Message::Text(text)).await?;
                     }
                 }
-                Err(err) => match err {
-                    rocket_ws::result::Error::ConnectionClosed => break,
-                    e => {
-                        rocket::warn!("unexpected WebSocket error: {e}");
-                        break;
-                    }
-                },
             }
+            Err(err) => match err {
+                rocket_ws::result::Error::ConnectionClosed => break,
+                e => {
+                    rocket::warn!("unexpected WebSocket error: {e}");
+                    break;
+                }
+            },
         }
-
-        Ok(())
     }
+
+    Ok(())
 }

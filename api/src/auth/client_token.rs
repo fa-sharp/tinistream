@@ -75,7 +75,7 @@ fn validate_client_token(token: &str, key: &str) -> Result<(), AuthError> {
 }
 
 /// OpenAPI docs for the client token
-impl<'r> OpenApiFromRequest<'r> for ClientTokenAuth {
+impl OpenApiFromRequest<'_> for ClientTokenAuth {
     fn from_request_input(
         _gen: &mut rocket_okapi::r#gen::OpenApiGenerator,
         _name: String,

@@ -30,7 +30,7 @@ impl<'r> FromRequest<'r> for ApiKeyAuth {
 }
 
 /// OpenAPI docs for the API key
-impl<'r> OpenApiFromRequest<'r> for ApiKeyAuth {
+impl OpenApiFromRequest<'_> for ApiKeyAuth {
     fn from_request_input(
         _gen: &mut rocket_okapi::r#gen::OpenApiGenerator,
         _name: String,

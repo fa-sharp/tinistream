@@ -34,13 +34,14 @@ impl RedisClient {
         let _: () = pipeline.hget(meta_key(key), META_STATUS_FIELD).await?;
         let _: () = pipeline.xlen(key).await?;
         let _: () = pipeline.ttl(key).await?;
-        Ok(pipeline.all().await?)
+
+        pipeline.all().await
     }
 
     /// Check if there's an active stream with the given key
     pub async fn is_active(&self, key: &str) -> FredResult<bool> {
         let status: Option<String> = self.client.hget(meta_key(key), META_STATUS_FIELD).await?;
-        Ok(status.map_or(false, |s| *s == StreamStatus::Active))
+        Ok(status.is_some_and(|s| *s == StreamStatus::Active))
     }
 
     /// Start a new stream with the given key by writing a `start` entry and setting the expiration.
@@ -56,7 +57,7 @@ impl RedisClient {
         let _: () = trx.expire(&meta_key, ttl.into(), None).await?;
         let mut responses: Vec<Value> = trx.exec(true).await?;
 
-        Ok(responses.swap_remove(1).convert()?)
+        responses.swap_remove(1).convert()
     }
 
     /// Write multiple events to the stream.
