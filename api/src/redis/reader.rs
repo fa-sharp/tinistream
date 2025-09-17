@@ -88,18 +88,18 @@ impl RedisReader {
     ) -> Result<(Vec<RedisEntry>, Str, bool), ApiError> {
         let start_event_id = start_event_id.unwrap_or("0-0");
         let pipeline = self.client.pipeline();
-        let _: () = pipeline.xread(None, None, key, start_event_id).await?;
+        let _: () = pipeline
+            .xrange(key, ["(", start_event_id].concat(), "+", None)
+            .await?;
         let _: () = pipeline.hget(meta_key(key), META_STATUS_FIELD).await?;
-        let (xread_response, status): (Option<Vec<(Str, Vec<RedisEntry>)>>, Option<String>) =
-            pipeline.all().await?;
-        let (_key, prev_events) = xread_response
-            .and_then(|mut streams| streams.pop())
-            .ok_or(ApiError::StreamNotFound)?;
+        let (prev_events, status): (Vec<RedisEntry>, Option<String>) = pipeline.all().await?;
+        let status = status.ok_or(ApiError::StreamNotFound)?;
+
         let last_event_id = prev_events
             .last()
             .map(|(id, _)| id.to_owned())
             .unwrap_or_else(|| start_event_id.into());
-        let is_end = status.is_none_or(|s| *s != StreamStatus::Active);
+        let is_end = *status != StreamStatus::Active;
 
         Ok((prev_events, last_event_id, is_end))
     }
