@@ -2483,7 +2483,7 @@ dependencies = [
 
 [[package]]
 name = "tinistream-client"
-version = "0.1.1"
+version = "0.1.5"
 dependencies = [
  "bytes",
  "futures-core",

@@ -3,7 +3,7 @@ use std::time::Duration;
 use reqwest::header::HeaderMap;
 use rocket::{Ignite, Rocket};
 use tinistream::build_rocket;
-use tinistream_client::{Client, ClientStreamExt};
+use tinistream_client::{Client, ClientEventsExt, ClientStreamExt};
 use tokio::{net::TcpListener, task::JoinHandle};
 
 /// Run the Rocket server on a random port and return the handle, port, and shutdown signal.

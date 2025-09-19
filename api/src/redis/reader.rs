@@ -43,7 +43,7 @@ impl<'r> FromRequest<'r> for RedisReader {
 }
 
 /// Timeout in milliseconds for the blocking `xread` command.
-const XREAD_BLOCK_TIMEOUT: u64 = 10_000; // 10 seconds
+const XREAD_BLOCK_TIMEOUT: u64 = 30_000; // 30 seconds
 
 impl RedisReader {
     pub fn new(client: deadpool::managed::Object<ExclusiveClientManager>) -> Self {

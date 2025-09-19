@@ -3,7 +3,7 @@ use std::{collections::HashMap, time::Duration};
 use eventsource_stream::Eventsource;
 use reqwest_websocket::RequestBuilderExt;
 use rocket::futures::{SinkExt, StreamExt};
-use tinistream_client::{types::*, ClientClientExt, ClientStreamExt};
+use tinistream_client::{types::*, ClientClientExt, ClientEventsExt, ClientStreamExt};
 
 mod common;
 
@@ -28,7 +28,7 @@ async fn server() -> Result<(), tokio::io::Error> {
         .unwrap();
     assert!(res.status().is_success());
     assert_eq!(
-        res.url,
+        res.sse_url,
         format!("http://localhost:8000/api/client/sse?key={}", key)
     );
 

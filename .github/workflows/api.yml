@@ -48,10 +48,10 @@ jobs:
       - name: Run cargo build for Rust client
         run: cargo build -p tinistream-client
 
-      - name: Build API tests
+      - name: Build tests
         run: cargo build --tests -p tinistream
 
-      - name: Run API tests
+      - name: Run tests
         run: cargo nextest run -p tinistream
         env:
           STREAMER_API_KEY: ${{ secrets.STREAMER_API_KEY }}

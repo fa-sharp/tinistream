@@ -30,7 +30,7 @@ pub async fn process_websocket_events(
     writer: RedisWriter,
     key: String,
 ) -> rocket_ws::result::Result<()> {
-    use rocket_ws::Message;
+    use rocket_ws::{frame::CloseFrame, Message};
 
     while let Some(res) = stream.next().await {
         match res {
@@ -57,15 +57,16 @@ pub async fn process_websocket_events(
 
                 match writer.write_event(&key, entry).await {
                     Ok(Some(id)) => {
-                        let text =
-                            serde_json::to_string(&EventResponse::success(id)).unwrap_or_default();
+                        let message = EventResponse::success(id);
+                        let text = serde_json::to_string(&message).unwrap_or_default();
                         stream.send(Message::Text(text)).await?;
                     }
                     Ok(None) => {
-                        let error = EventResponse::error("Stream not active".into());
-                        let text = serde_json::to_string(&error).unwrap_or_default();
-                        stream.send(Message::Text(text)).await?;
-                        stream.send(Message::Close(None)).await?;
+                        let close_message = CloseFrame {
+                            code: rocket_ws::frame::CloseCode::Error,
+                            reason: "Stream not active".into(),
+                        };
+                        stream.send(Message::Close(Some(close_message))).await?;
                     }
                     Err(err) => {
                         let error = EventResponse::error(err.to_string());
