@@ -53,98 +53,6 @@
         ]
       }
     },
-    "/api/client/sse": {
-      "get": {
-        "tags": [
-          "Client"
-        ],
-        "summary": "Connect SSE",
-        "description": "Connect to a stream and receive SSE events",
-        "operationId": "connect_sse",
-        "parameters": [
-          {
-            "name": "key",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "text/event-stream": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "integer",
-                    "format": "uint8",
-                    "minimum": 0.0
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Incorrectly formatted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "ClientToken": []
-          }
-        ]
-      }
-    },
     "/api/stream/": {
       "get": {
         "tags": [
@@ -1006,21 +914,6 @@
           }
         }
       },
-      "ErrorMessage": {
-        "type": "object",
-        "required": [
-          "code",
-          "message"
-        ],
-        "properties": {
-          "message": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          }
-        }
-      },
       "StreamInfo": {
         "description": "Information about the stream",
         "type": "object",
@@ -1044,6 +937,21 @@
             "description": "Expiration of the stream",
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "ErrorMessage": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
           }
         }
       },
@@ -1213,12 +1121,6 @@
         "type": "apiKey",
         "name": "X-API-KEY",
         "in": "header"
-      },
-      "ClientToken": {
-        "description": "Provide client token as a Bearer token.",
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "bearer"
       }
     }
   }

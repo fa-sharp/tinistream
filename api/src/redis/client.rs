@@ -94,6 +94,7 @@ impl RedisClient {
     pub async fn scan_streams(&self, pattern: &str) -> FredResult<Vec<(String, u64, i64)>> {
         use fred::types::scan::{ScanType, Scanner};
         const PAGE_COUNT: u32 = 50;
+        const META_PREFIX_LEN: usize = META_PREFIX.len();
 
         // Scan for metadata keys matching the pattern
         let meta_pattern = meta_key(pattern);
@@ -105,7 +106,7 @@ impl RedisClient {
             let meta_keys = page?.take_results().unwrap_or_default();
             stream_keys.extend(meta_keys.into_iter().filter_map(|meta_key| {
                 let meta_key_str = meta_key.into_string()?;
-                let key = &meta_key_str[META_PREFIX.len()..];
+                let key = &meta_key_str[META_PREFIX_LEN..];
                 Some((key.to_owned(), meta_key_str))
             }));
         }

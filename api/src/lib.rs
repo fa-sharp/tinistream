@@ -24,13 +24,13 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(setup_redis())
         .attach(setup_encryption())
         .register("/", get_catchers())
-        .mount("/api/docs", get_openapi_routes());
+        .mount("/api/docs", get_openapi_routes())
+        .mount("/api/client", api::client_routes());
 
     let openapi_settings = rocket_okapi::settings::OpenApiSettings::default();
     mount_endpoints_and_merged_docs! {
         rocket, "/", openapi_settings,
         "/api" => api::info_routes(),
-        "/api/client" => api::client_routes(),
         "/api/stream" => api::stream_routes(),
         "/api/event" => api::event_routes()
     };

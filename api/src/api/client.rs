@@ -5,9 +5,8 @@ use rocket::{
     futures::{self, stream::BoxStream, StreamExt},
     get,
     response::stream::{Event, EventStream},
-    Route,
+    routes, Route,
 };
-use rocket_okapi::{okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec};
 use rocket_ws::{result::Result as WsResult, stream::MessageStream, Message as WsMessage};
 
 use crate::{
@@ -16,13 +15,14 @@ use crate::{
     redis::{LastEventIdHeader, RedisReader},
 };
 
-pub fn get_routes() -> (Vec<Route>, OpenApi) {
-    openapi_get_routes_spec![connect_sse, connect_ws]
+/// Client routes to connect to streams. Not documented in OpenAPI since these are authenticated
+/// differently (with a short-lived token), and will typically not be used by backend services.
+pub fn get_routes() -> Vec<Route> {
+    routes![connect_sse, connect_ws]
 }
 
 /// # Connect SSE
 /// Connect to a stream and receive SSE events
-#[openapi(tag = "Client")]
 #[get("/sse?<key>")]
 async fn connect_sse(
     _token: ClientTokenAuth,
@@ -43,7 +43,6 @@ async fn connect_sse(
 /// # Connect WebSocket
 /// Connect to a stream via WebSockets and receive JSON events.
 /// The first message will be an array of the previous events.
-#[openapi(skip)] // TODO doesn't create a good OpenAPI doc at the moment
 #[get("/ws?<key>")]
 async fn connect_ws(
     _token: ClientTokenAuth,
