@@ -3,14 +3,11 @@ use std::{collections::HashMap, time::Duration};
 use eventsource_stream::Eventsource;
 use reqwest_websocket::RequestBuilderExt;
 use rocket::futures::{SinkExt, StreamExt};
-use tinistream_client::{types::*, ClientClientExt, ClientEventsExt, ClientStreamExt};
+use tinistream_client::{types::*, ClientEventsExt, ClientStreamExt};
 
 mod common;
 
-use crate::common::{
-    add_events_task, setup_backend_client, setup_frontend_client, setup_frontend_reqwest,
-    setup_rocket,
-};
+use crate::common::{add_events_task, setup_backend_client, setup_frontend_reqwest, setup_rocket};
 
 #[rocket::async_test]
 async fn server() -> Result<(), tokio::io::Error> {
@@ -87,22 +84,21 @@ async fn client_sse() -> Result<(), std::io::Error> {
         .body(StreamRequest::builder().key(&key))
         .send()
         .await
-        .expect("Should create stream");
-    let token = res.into_inner().token;
+        .expect("Should create stream")
+        .into_inner();
 
     // Spawn task to add events to the Redis stream on an interval
     let add_events_task = add_events_task(backend_client, &key);
 
     // Create frontend client
-    let client = setup_frontend_client(port, &token);
+    let client = setup_frontend_reqwest(&res.token);
 
     // Delay a bit before connecting, to test that old events are still received
     tokio::time::sleep(Duration::from_secs(2)).await;
 
     // Connect to SSE stream
     let res = client
-        .connect_sse()
-        .key(&key)
+        .get(res.sse_url)
         .send()
         .await
         .expect("should connect to SSE stream");
@@ -112,7 +108,7 @@ async fn client_sse() -> Result<(), std::io::Error> {
     // Read events
     let mut events = Vec::new();
     let mut errors = Vec::new();
-    let mut stream = res.into_inner_stream().eventsource();
+    let mut stream = res.bytes_stream().eventsource();
     while let Some(res) = stream.next().await {
         match res {
             Ok(ev) => events.push(ev),

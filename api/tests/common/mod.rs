@@ -54,13 +54,6 @@ pub fn setup_frontend_reqwest(token: &str) -> reqwest::Client {
     http_client
 }
 
-/// Setup the tinistream Rust client with a frontend token
-pub fn setup_frontend_client(port: u16, token: &str) -> Client {
-    let http_client = setup_frontend_reqwest(token);
-    let client = Client::new_with_client(&format!("http://localhost:{port}"), http_client);
-    client
-}
-
 /// Spawn task to add 10 `(test_event, test_data)` events to the Redis stream on an interval
 pub fn add_events_task(client: Client, key: &str) -> tokio::task::JoinHandle<()> {
     use tinistream_client::types::*;

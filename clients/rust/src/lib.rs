@@ -1518,7 +1518,7 @@ pub mod types {
 #[derive(Clone, Debug)]
 ///Client for tinistream
 ///
-///Version: 0.1.5
+///Version: 0.1.7
 pub struct Client {
     pub(crate) baseurl: String,
     pub(crate) client: reqwest::Client,
@@ -1559,7 +1559,7 @@ impl Client {
 
 impl ClientInfo<()> for Client {
     fn api_version() -> &'static str {
-        "0.1.5"
+        "0.1.7"
     }
 
     fn baseurl(&self) -> &str {
@@ -1576,28 +1576,6 @@ impl ClientInfo<()> for Client {
 }
 
 impl ClientHooks<()> for &Client {}
-pub trait ClientClientExt {
-    ///Connect SSE
-    ///
-    ///Connect to a stream and receive SSE events
-    ///
-    ///Sends a `GET` request to `/api/client/sse`
-    ///
-    ///```ignore
-    /// let response = client.connect_sse()
-    ///    .key(key)
-    ///    .send()
-    ///    .await;
-    /// ```
-    fn connect_sse(&self) -> builder::ConnectSse<'_>;
-}
-
-impl ClientClientExt for Client {
-    fn connect_sse(&self) -> builder::ConnectSse<'_> {
-        builder::ConnectSse::new(self)
-    }
-}
-
 pub trait ClientEventsExt {
     ///Add events
     ///
@@ -1886,79 +1864,6 @@ pub mod builder {
             let response = result?;
             match response.status().as_u16() {
                 200u16 => ResponseValue::from_response(response).await,
-                _ => Err(Error::UnexpectedResponse(response)),
-            }
-        }
-    }
-
-    ///Builder for [`ClientClientExt::connect_sse`]
-    ///
-    ///[`ClientClientExt::connect_sse`]: super::ClientClientExt::connect_sse
-    #[derive(Debug, Clone)]
-    pub struct ConnectSse<'a> {
-        client: &'a super::Client,
-        key: Result<::std::string::String, String>,
-    }
-
-    impl<'a> ConnectSse<'a> {
-        pub fn new(client: &'a super::Client) -> Self {
-            Self {
-                client: client,
-                key: Err("key was not initialized".to_string()),
-            }
-        }
-
-        pub fn key<V>(mut self, value: V) -> Self
-        where
-            V: std::convert::TryInto<::std::string::String>,
-        {
-            self.key = value.try_into().map_err(|_| {
-                "conversion to `:: std :: string :: String` for key failed".to_string()
-            });
-            self
-        }
-
-        ///Sends a `GET` request to `/api/client/sse`
-        pub async fn send(self) -> Result<ResponseValue<ByteStream>, Error<types::ErrorMessage>> {
-            let Self { client, key } = self;
-            let key = key.map_err(Error::InvalidRequest)?;
-            let url = format!("{}/api/client/sse", client.baseurl,);
-            let mut header_map = ::reqwest::header::HeaderMap::with_capacity(1usize);
-            header_map.append(
-                ::reqwest::header::HeaderName::from_static("api-version"),
-                ::reqwest::header::HeaderValue::from_static(super::Client::api_version()),
-            );
-            #[allow(unused_mut)]
-            let mut request = client
-                .client
-                .get(url)
-                .query(&progenitor_client::QueryParam::new("key", &key))
-                .headers(header_map)
-                .build()?;
-            let info = OperationInfo {
-                operation_id: "connect_sse",
-            };
-            client.pre(&mut request, &info).await?;
-            let result = client.exec(request, &info).await;
-            client.post(&result, &info).await?;
-            let response = result?;
-            match response.status().as_u16() {
-                200u16 => Ok(ResponseValue::stream(response)),
-                400u16 => Err(Error::ErrorResponse(
-                    ResponseValue::from_response(response).await?,
-                )),
-                401u16 => Err(Error::ErrorResponse(
-                    ResponseValue::from_response(response).await?,
-                )),
-                404u16 => Err(Error::ErrorResponse(
-                    ResponseValue::from_response(response).await?,
-                )),
-                422u16 => Err(Error::ErrorResponse(
-                    ResponseValue::from_response(response).await?,
-                )),
-                500u16 => Err(Error::ErrorResponse(
-                    ResponseValue::from_response(response).await?,
-                )),
                 _ => Err(Error::UnexpectedResponse(response)),
             }
         }
@@ -2766,7 +2671,6 @@ pub mod builder {
 pub mod prelude {
     #[allow(unused_imports)]
     pub use super::Client;
-    pub use super::ClientClientExt;
     pub use super::ClientEventsExt;
     pub use super::ClientInfoExt;
     pub use super::ClientStreamExt;
