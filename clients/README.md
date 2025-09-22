@@ -19,7 +19,7 @@ source .venv/bin/activate
 pip install openapi-python-client
 
 # Generate the client
-openapi-python-client generate --path spec/openapi.json --output-path clients/python --config clients/python/config.yml --overwrite
+openapi-python-client generate --path spec/openapi.json --output-path clients/python --config clients/python/config.yml --custom-template-path clients/python/templates --overwrite
 ```
 
 ## Rust
