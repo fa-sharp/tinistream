@@ -98,7 +98,7 @@ async fn client_sse() -> Result<(), std::io::Error> {
 
     // Connect to SSE stream
     let res = client
-        .get(res.sse_url)
+        .get(format!("http://localhost:{port}/api/client/sse?key={key}"))
         .send()
         .await
         .expect("should connect to SSE stream");
