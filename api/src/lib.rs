@@ -1,6 +1,7 @@
 pub mod api;
 pub mod auth;
 pub mod config;
+pub mod cors;
 pub mod data;
 pub mod errors;
 pub mod openapi;
@@ -10,19 +11,18 @@ use rocket::fairing::AdHoc;
 use rocket_okapi::mount_endpoints_and_merged_docs;
 
 use crate::{
-    auth::setup_encryption,
     config::{get_config_provider, AppConfig},
     errors::get_catchers,
     openapi::get_openapi_routes,
-    redis::setup_redis,
 };
 
 /// Build the rocket server, load configuration and routes, prepare for launch
 pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
     let mut rocket = rocket::custom(get_config_provider())
         .attach(AdHoc::config::<AppConfig>())
-        .attach(setup_redis())
-        .attach(setup_encryption())
+        .attach(redis::setup_redis())
+        .attach(auth::setup_encryption())
+        .attach(cors::setup_cors())
         .register("/", get_catchers())
         .mount("/api/docs", get_openapi_routes())
         .mount("/api/client", api::client_routes());
