@@ -7,7 +7,7 @@ use rocket::{
 use rocket_okapi::request::OpenApiFromRequest;
 use time::{Duration, UtcDateTime};
 
-use super::{AuthError, Crypto};
+use super::{AuthError, TokenEncryption};
 
 /// Request guard to extract, decrypt, and validate the client token for this request
 pub struct ClientTokenAuth(String);
@@ -35,7 +35,10 @@ impl<'r> FromRequest<'r> for ClientTokenAuth {
             .or_error((Status::Unauthorized, AuthError::MissingToken)));
 
         // Decrypt the client token
-        let crypto = req.rocket().state::<Crypto>().expect("should be attached");
+        let crypto = req
+            .rocket()
+            .state::<TokenEncryption>()
+            .expect("should be attached");
         let token = try_outcome!(crypto
             .decrypt_base64(encrypted_token)
             .or_error(Status::Unauthorized));

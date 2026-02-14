@@ -18,6 +18,7 @@ fred = { version = "10.1", default-features = false, features = [
   "transactions",
 ] }
 hex = "0.4.3"
+hmac = "0.12.1"
 itertools = "0.14.0"
 rocket = { version = "0.5.1", features = ["json", "secrets"] }
 rocket_okapi = { version = "0.9.0", features = ["rapidoc", "rocket_ws"] }
@@ -25,6 +26,7 @@ rocket_ws = { version = "0.1.1" }
 schemars = { version = "0.8.22" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+sha2 = "0.10.9"
 thiserror = "2.0"
 time = "0.3"
 tokio = { version = "1.45", features = ["full"] }
@@ -33,6 +35,7 @@ tokio-util = { version = "0.7.16", features = ["io"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 urlencoding = "2.1"
+zeroize = "1.8.1"
 
 [dev-dependencies]
 eventsource-stream = "0.2.3"

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use time::{format_description::well_known, UtcDateTime};
 
 use crate::{
-    auth::{create_client_token, ApiKeyAuth, Crypto},
+    auth::{create_client_token, ApiKeyAuth, TokenEncryption},
     config::AppConfig,
     errors::ApiError,
     redis::*,
@@ -99,7 +99,7 @@ async fn create_stream(
     _api_key: ApiKeyAuth,
     input: Json<StreamRequest>,
     redis: RedisClient,
-    crypto: &State<Crypto>,
+    token_crypto: &State<TokenEncryption>,
     config: &State<AppConfig>,
 ) -> Result<Json<StreamAccessResponse>, ApiError> {
     if redis.is_active(&input.key).await? {
@@ -108,7 +108,7 @@ async fn create_stream(
     redis.start_stream(&input.key, config.ttl).await?;
 
     let plaintext_token = create_client_token(&input.key, config.ttl);
-    let token = crypto.encrypt_base64(&plaintext_token)?;
+    let token = token_crypto.encrypt_base64(&plaintext_token)?;
 
     Ok(Json(StreamAccessResponse {
         sse_url: stream_sse_url(&input.key, &config.server_address),
@@ -124,11 +124,11 @@ async fn create_stream(
 async fn create_token(
     _api_key: ApiKeyAuth,
     input: Json<StreamRequest>,
-    crypto: &State<Crypto>,
+    token_crypto: &State<TokenEncryption>,
     config: &State<AppConfig>,
 ) -> Result<Json<StreamAccessResponse>, ApiError> {
     let plaintext_token = create_client_token(&input.key, config.ttl);
-    let token = crypto.encrypt_base64(&plaintext_token)?;
+    let token = token_crypto.encrypt_base64(&plaintext_token)?;
 
     Ok(Json(StreamAccessResponse {
         sse_url: stream_sse_url(&input.key, &config.server_address),

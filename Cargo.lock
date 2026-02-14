@@ -2460,6 +2460,7 @@ dependencies = [
  "eventsource-stream",
  "fred",
  "hex",
+ "hmac",
  "itertools",
  "rand 0.8.5",
  "reqwest",
@@ -2470,6 +2471,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 2.0.16",
  "time",
  "tinistream-client",
@@ -2479,6 +2481,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "urlencoding",
+ "zeroize",
 ]
 
 [[package]]
