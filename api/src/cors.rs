@@ -19,7 +19,6 @@ pub fn setup_cors() -> AdHoc {
         let cors = rocket_cors::CorsOptions::default()
             .allowed_origins(allowed_origins)
             .allowed_headers(allowed_headers)
-            .allow_credentials(true)
             .to_cors()
             .expect("Failed to create CORS fairing");
 
