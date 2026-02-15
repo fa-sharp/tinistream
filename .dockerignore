@@ -1,0 +1,62 @@
+# flyctl launch added from .gitignore
+# Rust
+**/target
+
+# IDE
+**/.vscode
+**/.idea
+**/*.swp
+**/*.swo
+**/*~
+
+# OS
+**/.DS_Store
+**/Thumbs.db
+
+# Environment
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Logs
+**/*.log
+**/logs
+
+# Database
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# flyctl launch added from clients/python/.gitignore
+clients/python/**/__pycache__
+clients/python/**/build
+clients/python/**/dist
+clients/python/**/*.egg-info
+clients/python/**/.pytest_cache
+
+# pyenv
+clients/python/**/.python-version
+
+# Environments
+clients/python/**/.env
+clients/python/**/.venv
+
+# mypy
+clients/python/**/.mypy_cache
+clients/python/**/.dmypy.json
+clients/python/**/dmypy.json
+
+# JetBrains
+clients/python/**/.idea
+
+clients/python/coverage.xml
+clients/python/.coverage
+
+# flyctl launch added from clients/python/.ruff_cache/.gitignore
+# Automatically created by ruff.
+clients/python/.ruff_cache/**/*
+
+# flyctl launch added from clients/python/.venv/.gitignore
+# Created by venv; see https://docs.python.org/3/library/venv.html
+clients/python/.venv/**/*
+fly.toml

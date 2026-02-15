@@ -11,7 +11,7 @@
       "command": "cargo",
       "args": ["build", "--package", "tinistream"],
       "env": {
-        "RUSTC_TOOLCHAIN": "/Users/farshad/.rustup/toolchains/1.85-aarch64-apple-darwin"
+        "RUSTC_TOOLCHAIN": "/Users/farshad/.rustup/toolchains/1.90-aarch64-apple-darwin",
       },
       "cwd": "/Users/farshad/Projects/tinistreamer/api",
       "use_new_terminal": false,
@@ -22,8 +22,8 @@
       "tags": [],
       "shell": "system",
       "show_summary": false,
-      "show_command": false
+      "show_command": false,
     },
-    "sourceLanguages": ["rust"]
-  }
+    "sourceLanguages": ["rust"],
+  },
 ]

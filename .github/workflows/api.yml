@@ -12,7 +12,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 env:
-  RUST_VERSION: 1.85
+  RUST_VERSION: 1.90
 
 jobs:
   api:

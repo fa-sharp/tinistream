@@ -1,4 +1,4 @@
-ARG RUST_VERSION=1.85
+ARG RUST_VERSION=1.90
 ARG DEBIAN_VERSION=bookworm
 
 ### Build Rust backend ###
