@@ -29,7 +29,7 @@ async fn connect_sse(
     key: &str,
     start_id: Option<LastEventIdHeader>,
     reader: RedisReader,
-) -> Result<EventStream<BoxStream<Event>>, ApiError> {
+) -> Result<EventStream<BoxStream<'_, Event>>, ApiError> {
     let (events, last_id, is_end) = reader.prev_sse_events(key, start_id.as_deref()).await?;
     let prev_events_stream = futures::stream::iter(events);
     if is_end {

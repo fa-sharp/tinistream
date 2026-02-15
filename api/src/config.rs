@@ -25,6 +25,8 @@ pub struct AppConfig {
     /// Default TTL in seconds for Redis streams (default: 10 minutes)
     #[serde(default = "default_stream_ttl")]
     pub ttl: u32,
+    /// Allowed origins for CORS, comma-separated list of domains (all domains allowed by default)
+    pub allowed_origins: Option<String>,
 }
 fn default_stream_ttl() -> u32 {
     600

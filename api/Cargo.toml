@@ -21,6 +21,7 @@ hex = "0.4.3"
 hmac = "0.12.1"
 itertools = "0.14.0"
 rocket = { version = "0.5.1", features = ["json", "secrets"] }
+rocket_cors = { version = "0.6.0", default-features = false }
 rocket_okapi = { version = "0.9.0", features = ["rapidoc", "rocket_ws"] }
 rocket_ws = { version = "0.1.1" }
 schemars = { version = "0.8.22" }
