@@ -25,11 +25,17 @@ pub struct AppConfig {
     /// Default TTL in seconds for Redis streams (default: 10 minutes)
     #[serde(default = "default_stream_ttl")]
     pub ttl: u32,
+    /// Timeout in seconds for client connections if there's no activity in the Redis stream (default: 5 minutes)
+    #[serde(default = "default_client_timeout")]
+    pub client_timeout: u32,
     /// Allowed origins for CORS, comma-separated list of domains (all domains allowed by default)
     pub allowed_origins: Option<String>,
 }
 fn default_stream_ttl() -> u32 {
     600
+}
+fn default_client_timeout() -> u32 {
+    300
 }
 
 /// Get the server configuration from Rocket state

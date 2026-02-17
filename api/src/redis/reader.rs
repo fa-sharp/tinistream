@@ -13,41 +13,45 @@ use rocket::{
 use rocket_okapi::OpenApiFromRequest;
 use rocket_ws::{result::Error as WsError, Message as WsMessage};
 
-use crate::{errors::ApiError, redis::*};
+use crate::{config::AppConfig, errors::ApiError, redis::*};
 
 /// Request guard that retrieves a stream reader with an exclusive lock on a Redis connection, for
 /// long-running read operations (e.g. for streaming SSE events from Redis to clients)
 #[derive(OpenApiFromRequest)]
 pub struct RedisReader {
     client: deadpool::managed::Object<ExclusiveClientManager>,
+    client_timeout: u64,
 }
 
 #[async_trait]
 impl<'r> FromRequest<'r> for RedisReader {
-    type Error = ();
+    type Error =
+        deadpool::managed::PoolError<<ExclusiveClientManager as deadpool::managed::Manager>::Error>;
+
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         let pool = req.rocket().state::<ExclusiveClientPool>().expect("exists");
+        let config = req.rocket().state::<AppConfig>().expect("exists");
         match pool.get().await {
-            Ok(client) => Outcome::Success(RedisReader::new(client)),
+            Ok(client) => Outcome::Success(RedisReader::new(client, config.client_timeout.into())),
             Err(err) => match err {
                 deadpool::managed::PoolError::Timeout(_) => {
-                    Outcome::Error((Status::TooManyRequests, ()))
+                    Outcome::Error((Status::TooManyRequests, err))
                 }
-                _ => {
-                    rocket::error!("Failed to retrieve Redis client from pool: {err}");
-                    Outcome::Error((Status::InternalServerError, ()))
-                }
+                _ => Outcome::Error((Status::InternalServerError, err)),
             },
         }
     }
 }
 
-/// Timeout in milliseconds for the blocking `xread` command.
-const XREAD_BLOCK_TIMEOUT: u64 = 30_000; // 30 seconds
-
 impl RedisReader {
-    pub fn new(client: deadpool::managed::Object<ExclusiveClientManager>) -> Self {
-        Self { client }
+    pub fn new(
+        client: deadpool::managed::Object<ExclusiveClientManager>,
+        client_timeout: u64,
+    ) -> Self {
+        Self {
+            client,
+            client_timeout,
+        }
     }
 
     /// Retrieve the previous events of the stream in SSE format
@@ -170,7 +174,7 @@ impl RedisReader {
         key: &str,
         start_event_id: &str,
     ) -> Option<Result<RedisEntry, ApiError>> {
-        self.xread(key, start_event_id, Some(1), Some(XREAD_BLOCK_TIMEOUT))
+        self.xread(key, start_event_id, Some(1), Some(self.client_timeout))
             .await
             .map(|mut entries| entries.pop()) // only reading 1 event in the command
             .transpose()
