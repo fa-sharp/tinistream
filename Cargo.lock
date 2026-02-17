@@ -2475,7 +2475,7 @@ dependencies = [
 
 [[package]]
 name = "tinistream"
-version = "0.1.7"
+version = "0.1.10"
 dependencies = [
  "aes-gcm",
  "base64",
