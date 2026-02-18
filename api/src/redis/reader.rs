@@ -20,7 +20,7 @@ use crate::{config::AppConfig, errors::ApiError, redis::*};
 #[derive(OpenApiFromRequest)]
 pub struct RedisReader {
     client: deadpool::managed::Object<ExclusiveClientManager>,
-    client_timeout: u64,
+    client_timeout_ms: u64,
 }
 
 #[async_trait]
@@ -32,7 +32,7 @@ impl<'r> FromRequest<'r> for RedisReader {
         let pool = req.rocket().state::<ExclusiveClientPool>().expect("exists");
         let config = req.rocket().state::<AppConfig>().expect("exists");
         match pool.get().await {
-            Ok(client) => Outcome::Success(RedisReader::new(client, config.client_timeout.into())),
+            Ok(client) => Outcome::Success(RedisReader::new(client, config.client_timeout)),
             Err(err) => match err {
                 deadpool::managed::PoolError::Timeout(_) => {
                     Outcome::Error((Status::TooManyRequests, err))
@@ -46,11 +46,11 @@ impl<'r> FromRequest<'r> for RedisReader {
 impl RedisReader {
     pub fn new(
         client: deadpool::managed::Object<ExclusiveClientManager>,
-        client_timeout: u64,
+        client_timeout_secs: u32,
     ) -> Self {
         Self {
             client,
-            client_timeout,
+            client_timeout_ms: u64::from(client_timeout_secs) * 1000,
         }
     }
 
@@ -174,7 +174,7 @@ impl RedisReader {
         key: &str,
         start_event_id: &str,
     ) -> Option<Result<RedisEntry, ApiError>> {
-        self.xread(key, start_event_id, Some(1), Some(self.client_timeout))
+        self.xread(key, start_event_id, Some(1), Some(self.client_timeout_ms))
             .await
             .map(|mut entries| entries.pop()) // only reading 1 event in the command
             .transpose()
