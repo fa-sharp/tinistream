@@ -20,6 +20,7 @@ use crate::{config::AppConfig, errors::ApiError, redis::*};
 #[derive(OpenApiFromRequest)]
 pub struct RedisReader {
     client: deadpool::managed::Object<ExclusiveClientManager>,
+    client_timeout: Duration,
     client_timeout_ms: u64,
 }
 
@@ -50,6 +51,7 @@ impl RedisReader {
     ) -> Self {
         Self {
             client,
+            client_timeout: Duration::from_secs(client_timeout_secs.into()),
             client_timeout_ms: u64::from(client_timeout_secs) * 1000,
         }
     }
@@ -190,6 +192,10 @@ impl RedisReader {
     ) -> Result<Vec<RedisEntry>, ApiError> {
         let (_key, events) = self
             .client
+            .with_options(&fred::prelude::Options {
+                timeout: Some(self.client_timeout),
+                ..Default::default()
+            })
             .xread::<Option<Vec<(Str, _)>>, _, _>(count, block, key, start_event_id)
             .await?
             .and_then(|mut streams| streams.pop()) // only reading 1 stream in the command
