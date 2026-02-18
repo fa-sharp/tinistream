@@ -1,7 +1,7 @@
-# fly.toml app configuration file generated for rs-chat-tinistream on 2026-02-15T01:42:32-05:00
-#
+# fly.io config file
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
+#:tombi schema.strict = false
 
 app = "rs-chat-tinistream"
 primary_region = "ewr"

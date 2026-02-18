@@ -2,7 +2,7 @@
   "openapi": "3.0.0",
   "info": {
     "title": "tinistream",
-    "version": "0.1.7"
+    "version": "0.1.10"
   },
   "paths": {
     "/api/health": {

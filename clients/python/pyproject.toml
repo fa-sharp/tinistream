@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tinistream-client"
-version = "0.1.5"
+version = "0.1.10"
 description = "A client library for accessing tinistream"
 authors = []
 readme = "README.md"

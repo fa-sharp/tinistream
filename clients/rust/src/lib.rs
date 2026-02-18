@@ -70,12 +70,6 @@ pub mod types {
         pub event: ::std::string::String,
     }
 
-    impl ::std::convert::From<&AddEvent> for AddEvent {
-        fn from(value: &AddEvent) -> Self {
-            value.clone()
-        }
-    }
-
     impl AddEvent {
         pub fn builder() -> builder::AddEvent {
             Default::default()
@@ -117,12 +111,6 @@ pub mod types {
         pub key: ::std::string::String,
     }
 
-    impl ::std::convert::From<&AddEventsRequest> for AddEventsRequest {
-        fn from(value: &AddEventsRequest) -> Self {
-            value.clone()
-        }
-    }
-
     impl AddEventsRequest {
         pub fn builder() -> builder::AddEventsRequest {
             Default::default()
@@ -155,12 +143,6 @@ pub mod types {
     pub struct AddEventsResponse {
         ///IDs of the added events
         pub ids: ::std::vec::Vec<::std::string::String>,
-    }
-
-    impl ::std::convert::From<&AddEventsResponse> for AddEventsResponse {
-        fn from(value: &AddEventsResponse) -> Self {
-            value.clone()
-        }
     }
 
     impl AddEventsResponse {
@@ -207,12 +189,6 @@ pub mod types {
         pub ids: ::std::vec::Vec<::std::string::String>,
     }
 
-    impl ::std::convert::From<&AddEventsStreamResponse> for AddEventsStreamResponse {
-        fn from(value: &AddEventsStreamResponse) -> Self {
-            value.clone()
-        }
-    }
-
     impl AddEventsStreamResponse {
         pub fn builder() -> builder::AddEventsStreamResponse {
             Default::default()
@@ -248,12 +224,6 @@ pub mod types {
         pub status: StreamStatus,
     }
 
-    impl ::std::convert::From<&EndStreamResponse> for EndStreamResponse {
-        fn from(value: &EndStreamResponse) -> Self {
-            value.clone()
-        }
-    }
-
     impl EndStreamResponse {
         pub fn builder() -> builder::EndStreamResponse {
             Default::default()
@@ -286,12 +256,6 @@ pub mod types {
     pub struct ErrorMessage {
         pub code: ::std::string::String,
         pub message: ::std::string::String,
-    }
-
-    impl ::std::convert::From<&ErrorMessage> for ErrorMessage {
-        fn from(value: &ErrorMessage) -> Self {
-            value.clone()
-        }
     }
 
     impl ErrorMessage {
@@ -331,12 +295,6 @@ pub mod types {
         pub redis: RedisStats,
         pub url: ::std::string::String,
         pub version: ::std::string::String,
-    }
-
-    impl ::std::convert::From<&InfoResponse> for InfoResponse {
-        fn from(value: &InfoResponse) -> Self {
-            value.clone()
-        }
     }
 
     impl InfoResponse {
@@ -409,12 +367,6 @@ pub mod types {
         pub streaming_max: u32,
     }
 
-    impl ::std::convert::From<&RedisStats> for RedisStats {
-        fn from(value: &RedisStats) -> Self {
-            value.clone()
-        }
-    }
-
     impl RedisStats {
         pub fn builder() -> builder::RedisStats {
             Default::default()
@@ -464,12 +416,6 @@ pub mod types {
         pub token: ::std::string::String,
         ///URL for the client to connect to the stream via WebSocket
         pub ws_url: ::std::string::String,
-    }
-
-    impl ::std::convert::From<&StreamAccessResponse> for StreamAccessResponse {
-        fn from(value: &StreamAccessResponse) -> Self {
-            value.clone()
-        }
     }
 
     impl StreamAccessResponse {
@@ -527,12 +473,6 @@ pub mod types {
         pub time: ::std::string::String,
     }
 
-    impl ::std::convert::From<&StreamEvent> for StreamEvent {
-        fn from(value: &StreamEvent) -> Self {
-            value.clone()
-        }
-    }
-
     impl StreamEvent {
         pub fn builder() -> builder::StreamEvent {
             Default::default()
@@ -582,12 +522,6 @@ pub mod types {
         pub ttl: i64,
     }
 
-    impl ::std::convert::From<&StreamInfo> for StreamInfo {
-        fn from(value: &StreamInfo) -> Self {
-            value.clone()
-        }
-    }
-
     impl StreamInfo {
         pub fn builder() -> builder::StreamInfo {
             Default::default()
@@ -615,12 +549,6 @@ pub mod types {
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
     pub struct StreamRequest {
         pub key: ::std::string::String,
-    }
-
-    impl ::std::convert::From<&StreamRequest> for StreamRequest {
-        fn from(value: &StreamRequest) -> Self {
-            value.clone()
-        }
     }
 
     impl StreamRequest {
@@ -663,12 +591,6 @@ pub mod types {
         Cancelled,
         #[serde(rename = "ended")]
         Ended,
-    }
-
-    impl ::std::convert::From<&Self> for StreamStatus {
-        fn from(value: &StreamStatus) -> Self {
-            value.clone()
-        }
     }
 
     impl ::std::fmt::Display for StreamStatus {
@@ -746,7 +668,7 @@ pub mod types {
             {
                 self.data = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for data: {}", e));
+                    .map_err(|e| format!("error converting supplied value for data: {e}"));
                 self
             }
             pub fn event<T>(mut self, value: T) -> Self
@@ -756,7 +678,7 @@ pub mod types {
             {
                 self.event = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for event: {}", e));
+                    .map_err(|e| format!("error converting supplied value for event: {e}"));
                 self
             }
         }
@@ -805,7 +727,7 @@ pub mod types {
             {
                 self.events = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for events: {}", e));
+                    .map_err(|e| format!("error converting supplied value for events: {e}"));
                 self
             }
             pub fn key<T>(mut self, value: T) -> Self
@@ -815,7 +737,7 @@ pub mod types {
             {
                 self.key = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for key: {}", e));
+                    .map_err(|e| format!("error converting supplied value for key: {e}"));
                 self
             }
         }
@@ -865,7 +787,7 @@ pub mod types {
             {
                 self.ids = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for ids: {}", e));
+                    .map_err(|e| format!("error converting supplied value for ids: {e}"));
                 self
             }
         }
@@ -914,7 +836,7 @@ pub mod types {
             {
                 self.errors = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for errors: {}", e));
+                    .map_err(|e| format!("error converting supplied value for errors: {e}"));
                 self
             }
             pub fn ids<T>(mut self, value: T) -> Self
@@ -924,7 +846,7 @@ pub mod types {
             {
                 self.ids = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for ids: {}", e));
+                    .map_err(|e| format!("error converting supplied value for ids: {e}"));
                 self
             }
         }
@@ -971,7 +893,7 @@ pub mod types {
             {
                 self.status = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for status: {}", e));
+                    .map_err(|e| format!("error converting supplied value for status: {e}"));
                 self
             }
         }
@@ -1018,7 +940,7 @@ pub mod types {
             {
                 self.code = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for code: {}", e));
+                    .map_err(|e| format!("error converting supplied value for code: {e}"));
                 self
             }
             pub fn message<T>(mut self, value: T) -> Self
@@ -1028,7 +950,7 @@ pub mod types {
             {
                 self.message = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for message: {}", e));
+                    .map_err(|e| format!("error converting supplied value for message: {e}"));
                 self
             }
         }
@@ -1079,7 +1001,7 @@ pub mod types {
             {
                 self.redis = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for redis: {}", e));
+                    .map_err(|e| format!("error converting supplied value for redis: {e}"));
                 self
             }
             pub fn url<T>(mut self, value: T) -> Self
@@ -1089,7 +1011,7 @@ pub mod types {
             {
                 self.url = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for url: {}", e));
+                    .map_err(|e| format!("error converting supplied value for url: {e}"));
                 self
             }
             pub fn version<T>(mut self, value: T) -> Self
@@ -1099,7 +1021,7 @@ pub mod types {
             {
                 self.version = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for version: {}", e));
+                    .map_err(|e| format!("error converting supplied value for version: {e}"));
                 self
             }
         }
@@ -1158,7 +1080,7 @@ pub mod types {
             {
                 self.static_ = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for static_: {}", e));
+                    .map_err(|e| format!("error converting supplied value for static_: {e}"));
                 self
             }
             pub fn streaming<T>(mut self, value: T) -> Self
@@ -1168,7 +1090,7 @@ pub mod types {
             {
                 self.streaming = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for streaming: {}", e));
+                    .map_err(|e| format!("error converting supplied value for streaming: {e}"));
                 self
             }
             pub fn streaming_available<T>(mut self, value: T) -> Self
@@ -1177,10 +1099,7 @@ pub mod types {
                 T::Error: ::std::fmt::Display,
             {
                 self.streaming_available = value.try_into().map_err(|e| {
-                    format!(
-                        "error converting supplied value for streaming_available: {}",
-                        e
-                    )
+                    format!("error converting supplied value for streaming_available: {e}")
                 });
                 self
             }
@@ -1190,10 +1109,7 @@ pub mod types {
                 T::Error: ::std::fmt::Display,
             {
                 self.streaming_in_use = value.try_into().map_err(|e| {
-                    format!(
-                        "error converting supplied value for streaming_in_use: {}",
-                        e
-                    )
+                    format!("error converting supplied value for streaming_in_use: {e}")
                 });
                 self
             }
@@ -1202,9 +1118,9 @@ pub mod types {
                 T: ::std::convert::TryInto<u32>,
                 T::Error: ::std::fmt::Display,
             {
-                self.streaming_max = value.try_into().map_err(|e| {
-                    format!("error converting supplied value for streaming_max: {}", e)
-                });
+                self.streaming_max = value
+                    .try_into()
+                    .map_err(|e| format!("error converting supplied value for streaming_max: {e}"));
                 self
             }
         }
@@ -1261,7 +1177,7 @@ pub mod types {
             {
                 self.sse_url = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for sse_url: {}", e));
+                    .map_err(|e| format!("error converting supplied value for sse_url: {e}"));
                 self
             }
             pub fn token<T>(mut self, value: T) -> Self
@@ -1271,7 +1187,7 @@ pub mod types {
             {
                 self.token = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for token: {}", e));
+                    .map_err(|e| format!("error converting supplied value for token: {e}"));
                 self
             }
             pub fn ws_url<T>(mut self, value: T) -> Self
@@ -1281,7 +1197,7 @@ pub mod types {
             {
                 self.ws_url = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for ws_url: {}", e));
+                    .map_err(|e| format!("error converting supplied value for ws_url: {e}"));
                 self
             }
         }
@@ -1339,7 +1255,7 @@ pub mod types {
             {
                 self.data = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for data: {}", e));
+                    .map_err(|e| format!("error converting supplied value for data: {e}"));
                 self
             }
             pub fn event<T>(mut self, value: T) -> Self
@@ -1349,7 +1265,7 @@ pub mod types {
             {
                 self.event = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for event: {}", e));
+                    .map_err(|e| format!("error converting supplied value for event: {e}"));
                 self
             }
             pub fn id<T>(mut self, value: T) -> Self
@@ -1359,7 +1275,7 @@ pub mod types {
             {
                 self.id = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for id: {}", e));
+                    .map_err(|e| format!("error converting supplied value for id: {e}"));
                 self
             }
             pub fn time<T>(mut self, value: T) -> Self
@@ -1369,7 +1285,7 @@ pub mod types {
             {
                 self.time = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for time: {}", e));
+                    .map_err(|e| format!("error converting supplied value for time: {e}"));
                 self
             }
         }
@@ -1424,7 +1340,7 @@ pub mod types {
             {
                 self.key = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for key: {}", e));
+                    .map_err(|e| format!("error converting supplied value for key: {e}"));
                 self
             }
             pub fn length<T>(mut self, value: T) -> Self
@@ -1434,7 +1350,7 @@ pub mod types {
             {
                 self.length = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for length: {}", e));
+                    .map_err(|e| format!("error converting supplied value for length: {e}"));
                 self
             }
             pub fn ttl<T>(mut self, value: T) -> Self
@@ -1444,7 +1360,7 @@ pub mod types {
             {
                 self.ttl = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for ttl: {}", e));
+                    .map_err(|e| format!("error converting supplied value for ttl: {e}"));
                 self
             }
         }
@@ -1493,7 +1409,7 @@ pub mod types {
             {
                 self.key = value
                     .try_into()
-                    .map_err(|e| format!("error converting supplied value for key: {}", e));
+                    .map_err(|e| format!("error converting supplied value for key: {e}"));
                 self
             }
         }
@@ -1518,7 +1434,7 @@ pub mod types {
 #[derive(Clone, Debug)]
 ///Client for tinistream
 ///
-///Version: 0.1.7
+///Version: 0.1.10
 pub struct Client {
     pub(crate) baseurl: String,
     pub(crate) client: reqwest::Client,
@@ -1533,7 +1449,7 @@ impl Client {
     pub fn new(baseurl: &str) -> Self {
         #[cfg(not(target_arch = "wasm32"))]
         let client = {
-            let dur = std::time::Duration::from_secs(15);
+            let dur = ::std::time::Duration::from_secs(15u64);
             reqwest::ClientBuilder::new()
                 .connect_timeout(dur)
                 .timeout(dur)
@@ -1559,7 +1475,7 @@ impl Client {
 
 impl ClientInfo<()> for Client {
     fn api_version() -> &'static str {
-        "0.1.7"
+        "0.1.10"
     }
 
     fn baseurl(&self) -> &str {

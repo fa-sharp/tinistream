@@ -1,7 +1,7 @@
 use std::{collections::HashMap, time::Duration};
 
 use eventsource_stream::Eventsource;
-use reqwest_websocket::RequestBuilderExt;
+use reqwest_websocket::Upgrade;
 use rocket::futures::{SinkExt, StreamExt};
 use tinistream_client::{types::*, ClientEventsExt, ClientStreamExt};
 
