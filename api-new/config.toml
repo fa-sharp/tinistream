@@ -1,0 +1,11 @@
+# Local/development config
+
+host = "127.0.0.1"
+port = 8000
+base_url = "http://localhost:8000"
+log_level = "info"
+
+redis_url = "redis://localhost:6379"
+redis_pool = 2
+redis_ttl = 1800
+max_clients = 10
