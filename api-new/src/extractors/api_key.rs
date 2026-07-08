@@ -16,7 +16,7 @@ impl FromRequestParts<AppState> for ApiKey {
         let provided_key = parts
             .headers
             .get(&state.config.api_key_header)
-            .ok_or_else(|| AppError::unauthorized())?;
+            .ok_or_else(|| AppError::unauthorized("missing API key"))?;
 
         match provided_key
             .as_bytes()
@@ -24,7 +24,7 @@ impl FromRequestParts<AppState> for ApiKey {
             .into()
         {
             true => Ok(Self),
-            false => Err(AppError::unauthorized()),
+            false => Err(AppError::unauthorized("invalid API key")),
         }
     }
 }

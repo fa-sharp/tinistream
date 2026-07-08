@@ -1,6 +1,6 @@
 use axum_plugin::AdHocPlugin;
 
-use crate::{config::AppConfig, extractors::api_key::ApiKey, state::AppState};
+use crate::{config::AppConfig, extractors::ApiKey, state::AppState};
 
 pub mod health;
 pub mod hello;

@@ -5,7 +5,7 @@ use std::{ops::Deref, sync::Arc};
 use axum_plugin::{AppState, TypeMap};
 
 use crate::{
-    auth::TokenEncryption,
+    auth::{ClientToken, TokenEncryption},
     config::AppConfig,
     redis::{ExclusiveClientPool, StaticPool},
 };
@@ -35,5 +35,11 @@ impl TryFrom<TypeMap> for AppState {
 
     fn try_from(map: TypeMap) -> Result<Self, Self::Error> {
         Ok(Self(Arc::new(AppStateInner::try_from(map)?)))
+    }
+}
+
+impl AppState {
+    pub fn client_tokens(&self) -> ClientToken<'_> {
+        ClientToken::new(&self.encryptor)
     }
 }

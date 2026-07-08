@@ -1,7 +1,7 @@
 use axum::{
+    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use serde::Serialize;
 
@@ -42,8 +42,12 @@ impl AppError {
         Self::new(StatusCode::BAD_REQUEST, message)
     }
 
-    pub fn unauthorized() -> Self {
-        Self::new(StatusCode::UNAUTHORIZED, "unauthorized")
+    pub fn unauthorized(error: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::UNAUTHORIZED,
+            message: "unauthorized".into(),
+            source: Some(anyhow::anyhow!(error.into())),
+        }
     }
 
     pub fn not_found(message: impl Into<String>) -> Self {

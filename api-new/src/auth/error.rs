@@ -7,10 +7,10 @@ pub enum AuthError {
     // MissingToken,
     #[error("Invalid token")]
     InvalidToken,
-    // #[error("Expired token")]
-    // ExpiredToken,
-    // #[error("Permission denied")]
-    // PermissionDenied,
+    #[error("Expired token")]
+    ExpiredToken,
+    #[error("Permission denied")]
+    PermissionDenied,
     #[error("Failed to encrypt token")]
     Encrypt,
     #[error("Failed to decrypt token")]
