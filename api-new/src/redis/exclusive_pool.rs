@@ -2,9 +2,11 @@ use std::{sync::Arc, time::Duration};
 
 use fred::interfaces::ClientLike;
 
-/// The dynamic pool of Redis clients with exclusive connections for streaming / long-running
-/// tasks. Stored in axum state.
+/// The dynamic pool of Redis clients with exclusive connections for streaming / long-running tasks.
+/// Stored in axum state.
 pub type ExclusiveClientPool = deadpool::managed::Pool<ExclusiveClientManager>;
+/// The error when failing to get a client from the exclusive pool
+pub type ExclusiveClientPoolError = deadpool::managed::PoolError<fred::error::Error>;
 
 /// Deadpool implementation for a dynamic pool of exclusive Redis clients.
 #[derive(Debug)]

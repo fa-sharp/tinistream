@@ -24,6 +24,12 @@ pub struct AppConfig {
     pub redis_pool: usize,
     /// Default TTL in seconds for Redis streams (default: 10 minutes)
     pub redis_ttl: u32,
+    /// Timeout in seconds when connecting to Redis (default: 6 seconds)
+    pub redis_timeout: u32,
+    /// Timeout in seconds for client connections if there's no activity in the Redis stream (default: 5 minutes)
+    pub client_timeout: u32,
+    /// Maximum number of events in a Redis stream (default: 5000)
+    pub max_stream_len: u32,
     /// Maximum number of concurrent reading clients (default: 50)
     pub max_clients: usize,
 
@@ -46,7 +52,10 @@ impl Default for AppConfig {
             secret_key: String::new(),
             redis_url: "redis://localhost".into(),
             redis_pool: 4,
-            redis_ttl: 600,
+            redis_timeout: 6,
+            redis_ttl: 10 * 60,
+            client_timeout: 5 * 60,
+            max_stream_len: 5000,
             max_clients: 50,
             allowed_origins: None,
             body_limit: 10 * 1024 * 1024, // 10 MB

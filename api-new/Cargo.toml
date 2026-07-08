@@ -2,11 +2,12 @@
 name = "tinistream-api"
 version = "0.1.0"
 edition = "2024"
-description = "A lightweight streaming broker"
+description = "Backend for tinistream, a lightweight streaming broker"
 
 [dependencies]
 anyhow = "1.0.103"
-axum = { version = "0.8.9", features = ["json", "query"] }
+async-stream = "0.3.6"
+axum = { version = "0.8.9", features = ["json", "query", "ws"] }
 axum-helmet = "1.0.2"
 axum-plugin = {
   git = "https://git.fasharp.io/fa-sharp/axum-plugin",
@@ -19,11 +20,14 @@ deadpool = { version = "0.13.0", features = ["rt_tokio_1"] }
 dotenvy = "0.15.7"
 figment = { version = "0.10.19", features = ["env"] }
 fred = {
-  version = "10.1",
+  version = "10.1.0",
   default-features = false,
   features = ["i-hashes", "i-keys", "i-streams", "transactions"]
 }
+futures = "0.3.32"
 hex = "0.4.3"
+itertools = "0.15.0"
+schemars = { version = "1.2.1" }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 subtle = { version = "2.6.1", default-features = false, features = ["std"] }
