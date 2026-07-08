@@ -1,3 +1,7 @@
 [workspace]
 resolver = "2"
-members = ["api", "clients/rust"]
+members = [
+  "api",
+  "api-new",
+  "clients/rust",
+]
