@@ -5,7 +5,6 @@ edition = "2024"
 description = "A lightweight streaming broker"
 
 [dependencies]
-aes-gcm = "0.11.0"
 anyhow = "1.0.103"
 axum = { version = "0.8.9", features = ["json", "query"] }
 axum-helmet = "1.0.2"
@@ -15,6 +14,7 @@ axum-plugin = {
   features = ["figment"]
 }
 base64 = "0.22.1"
+chacha20poly1305 = { version = "0.11.0", features = ["zeroize"] }
 deadpool = { version = "0.13.0", features = ["rt_tokio_1"] }
 dotenvy = "0.15.7"
 figment = { version = "0.10.19", features = ["env"] }

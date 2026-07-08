@@ -1,33 +1,34 @@
-//! Client token encryption using AES-GCM
+//! Client token encryption using XChaCha20Poly1305
 
-use aes_gcm::{
-    Aes256Gcm, Nonce,
+use base64::{Engine, prelude::BASE64_URL_SAFE_NO_PAD};
+use chacha20poly1305::{
+    XChaCha20Poly1305, XNonce,
     aead::{Aead, Generate, KeyInit},
 };
-use base64::{Engine, prelude::BASE64_URL_SAFE_NO_PAD};
 
 use crate::auth::AuthError;
 
-const VERSION: &[u8] = b"v1";
+const VERSION: &[u8] = b"v2";
 const VERSION_LEN: usize = VERSION.len();
-const NONCE_LEN: usize = 12;
+const NONCE_LEN: usize = 24;
 
 /// Service for encrypting and decrypting tokens using the secret key
 pub struct TokenEncryption {
-    cipher: Aes256Gcm,
+    cipher: XChaCha20Poly1305,
 }
 
 impl TokenEncryption {
     /// Create the encryption service. Expects a 32 byte hex key.
     pub fn new(key: &str) -> Result<Self, AuthError> {
         let key_bytes = hex::decode(key).map_err(|_| AuthError::InvalidKey)?;
-        let cipher = Aes256Gcm::new_from_slice(&key_bytes).map_err(|_| AuthError::InvalidKey)?;
+        let cipher =
+            XChaCha20Poly1305::new_from_slice(&key_bytes).map_err(|_| AuthError::InvalidKey)?;
         Ok(Self { cipher })
     }
 
     /// Encrypts a string using AES-256-GCM and returns a base64-encoded token with the version, nonce, and ciphertext.
     pub fn encrypt_base64(&self, plaintext: &str) -> Result<String, AuthError> {
-        let nonce = Nonce::generate();
+        let nonce = XNonce::generate();
         let ciphertext = self
             .cipher
             .encrypt(&nonce, plaintext.as_bytes())
@@ -53,7 +54,7 @@ impl TokenEncryption {
         let (nonce, ciphertext) = rest
             .split_at_checked(NONCE_LEN)
             .ok_or(AuthError::InvalidToken)?;
-        let nonce = Nonce::try_from(nonce).map_err(|_| AuthError::InvalidToken)?;
+        let nonce = XNonce::try_from(nonce).map_err(|_| AuthError::InvalidToken)?;
         let plaintext = self
             .cipher
             .decrypt(&nonce, ciphertext)
@@ -127,7 +128,7 @@ mod tests {
         let valid_token = crypto.encrypt_base64("test").unwrap();
         let mut bytes = BASE64_URL_SAFE_NO_PAD.decode(&valid_token).unwrap();
         bytes[0] = b'v';
-        bytes[1] = b'2';
+        bytes[1] = b'1';
         let invalid_version_token = BASE64_URL_SAFE_NO_PAD.encode(&bytes);
         assert!(crypto.decrypt_base64(&invalid_version_token).is_err());
     }
