@@ -5,5 +5,7 @@ use crate::{config::AppConfig, state::AppState};
 /// Type alias for all ad-hoc plugins
 type Plugin = AdHocPlugin<AppState, AppConfig>;
 
+pub mod crypto;
 pub mod logging;
+pub mod redis;
 pub mod security;

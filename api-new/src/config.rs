@@ -3,7 +3,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use serde::{Deserialize, Serialize};
 
 /// Parsed app configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AppConfig {
     // Server config
     pub host: IpAddr,

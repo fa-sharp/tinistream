@@ -4,7 +4,11 @@ use std::{ops::Deref, sync::Arc};
 
 use axum_plugin::{AppState, TypeMap};
 
-use crate::config::AppConfig;
+use crate::{
+    auth::TokenEncryption,
+    config::AppConfig,
+    redis::{ExclusiveClientPool, StaticPool},
+};
 
 /// App state stored in the Axum router
 #[derive(Clone)]
@@ -12,8 +16,10 @@ pub struct AppState(Arc<AppStateInner>);
 
 #[derive(AppState)]
 pub struct AppStateInner {
-    pub config: AppConfig,
-    // add state here...
+    pub config: Arc<AppConfig>,
+    pub encryptor: TokenEncryption,
+    pub static_pool: StaticPool,
+    pub exclusive_pool: ExclusiveClientPool,
 }
 
 impl Deref for AppState {
