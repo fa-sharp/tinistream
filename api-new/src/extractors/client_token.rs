@@ -6,9 +6,10 @@ use serde::Deserialize;
 
 use crate::{error::AppError, state::AppState};
 
-/// Validate the client token and get the stream key it can access
+/// Validate the client token
 pub struct ClientTokenAuth {
-    key: String,
+    /// The stream key that can be accessed
+    pub key: String,
 }
 
 impl FromRequestParts<AppState> for ClientTokenAuth {

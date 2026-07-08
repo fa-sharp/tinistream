@@ -5,6 +5,8 @@ use axum::{
 };
 use serde::Serialize;
 
+use crate::redis::ExclusiveClientPoolError;
+
 /// Global result type that can be used for API route handlers
 pub type AppResult<T> = Result<T, AppError>;
 
@@ -22,12 +24,11 @@ impl From<anyhow::Error> for AppError {
     }
 }
 
-// Add more conversions here to be able to propagate them in route handlers:
-// impl From<DatabaseError> for AppError {
-//     fn from(error: DatabaseError) -> Self {
-//         Self::internal(error.into())
-//     }
-// }
+impl From<ExclusiveClientPoolError> for AppError {
+    fn from(error: ExclusiveClientPoolError) -> Self {
+        Self::internal(anyhow::Error::from(error).context("retrieve exclusive client from pool"))
+    }
+}
 
 impl AppError {
     pub fn new(status: StatusCode, message: impl Into<String>) -> Self {

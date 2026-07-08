@@ -35,16 +35,19 @@ impl RedisReader {
         &self,
         key: &str,
         start_event_id: Option<&str>,
-    ) -> RedisResult<(impl IntoIterator<Item = SseEvent>, RedisStr, bool)> {
+    ) -> RedisResult<(Vec<SseEvent>, RedisStr, bool)> {
         let (prev_events, last_event_id, is_end) =
             self.get_prev_events(key, start_event_id).await?;
-        let sse_events = prev_events.into_iter().map(RedisEntry::into_sse_event);
+        let sse_events = prev_events
+            .into_iter()
+            .map(RedisEntry::into_sse_event)
+            .collect();
 
         Ok((sse_events, last_event_id, is_end))
     }
 
-    /// Retrieve the previous events of the stream in a JSON array, along with the last event ID
-    /// and whether the stream has ended
+    /// Retrieve the previous events of the stream as a stringified JSON array, along with the
+    /// last event ID and whether the stream has ended
     pub async fn prev_json_events(
         &self,
         key: &str,
@@ -85,11 +88,16 @@ impl RedisReader {
     }
 
     /// Listen for new events in the Redis stream and return SSE events as a stream
-    pub fn stream_sse_events(self, key: &str, last_event_id: &str) -> impl Stream<Item = SseEvent> {
+    pub fn stream_sse_events(
+        self,
+        key: &str,
+        last_event_id: &str,
+    ) -> impl Stream<Item = SseEvent> + use<> {
+        let key = key.to_owned();
         let mut last_event_id = last_event_id.to_owned();
 
         async_stream::stream! {
-            while let Some(res) = self.next_event(key, &last_event_id).await {
+            while let Some(res) = self.next_event(&key, &last_event_id).await {
                 match res {
                     Ok(event) if event.is_end_event() => {
                         yield event.into_sse_event();
@@ -109,11 +117,16 @@ impl RedisReader {
     }
 
     /// Listen for new events in the Redis stream and return JSON-serialized WebSocket messages.
-    pub fn stream_ws_events(self, key: &str, last_event_id: &str) -> impl Stream<Item = WsMessage> {
+    pub fn stream_ws_events(
+        self,
+        key: &str,
+        last_event_id: &str,
+    ) -> impl Stream<Item = WsMessage> + use<> {
+        let key = key.to_owned();
         let mut last_event_id = last_event_id.to_owned();
 
         async_stream::stream! {
-            while let Some(res) = self.next_event(key, &last_event_id).await {
+            while let Some(res) = self.next_event(&key, &last_event_id).await {
                 match res {
                     Ok(event) if event.is_end_event() => {
                         yield event.into_ws_message();
