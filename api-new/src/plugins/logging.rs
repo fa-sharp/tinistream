@@ -2,7 +2,6 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use axum::{extract::Request, http::HeaderName};
-use axum_plugin::AdHocPlugin;
 use tower::ServiceBuilder;
 use tower_http::{
     request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
@@ -10,13 +9,13 @@ use tower_http::{
 };
 use tracing::Level;
 
-use crate::state::AppState;
+use crate::plugins::Plugin;
 
-pub fn plugin() -> AdHocPlugin<AppState> {
-    AdHocPlugin::named("Request logs").on_setup(|router, state: &AppState| {
+pub fn plugin() -> Plugin {
+    Plugin::named("Request logs").on_setup(|app, router| {
         const LOG_LEVEL: Level = Level::INFO;
 
-        let request_id_header = HeaderName::from_str(&state.config.request_id_header)
+        let request_id_header = HeaderName::from_str(&app.config().request_id_header)
             .context("invalid request ID header")?;
 
         let trace_layer = TraceLayer::new_for_http()

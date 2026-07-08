@@ -10,7 +10,8 @@ axum = { version = "0.8.9", features = ["json", "query"] }
 axum-helmet = "1.0.2"
 axum-plugin = {
   git = "https://git.fasharp.io/fa-sharp/axum-plugin",
-  rev = "9f72278b3c"
+  rev = "ba284fcb6e",
+  features = ["figment"]
 }
 dotenvy = "0.15.7"
 figment = { version = "0.10.19", features = ["env"] }

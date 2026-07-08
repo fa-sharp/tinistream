@@ -1,13 +1,9 @@
 use std::net::{IpAddr, Ipv4Addr};
 
-use anyhow::Context;
-use axum_plugin::AdHocPlugin;
-use serde::Deserialize;
-
-use crate::state::AppState;
+use serde::{Deserialize, Serialize};
 
 /// Parsed app configuration
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     // Server config
     pub host: IpAddr,
@@ -23,6 +19,7 @@ pub struct AppConfig {
     pub allowed_origins: Option<String>,
     pub body_limit: usize,
 }
+
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
@@ -36,23 +33,4 @@ impl Default for AppConfig {
             body_limit: 10 * 1024 * 1024, // 10 MB
         }
     }
-}
-
-/// Plugin that reads and validates configuration, and adds it to server state
-pub fn plugin() -> AdHocPlugin<AppState> {
-    AdHocPlugin::named("Config").on_init(async |mut state| {
-        let config = extract_config()?;
-        state.insert(config);
-        Ok(state)
-    })
-}
-
-/// Extract the configuration from env variables prefixed with `STREAMER_`.
-fn extract_config() -> anyhow::Result<AppConfig> {
-    let config = figment::Figment::new()
-        .merge(figment::providers::Env::prefixed("STREAMER_"))
-        .extract::<AppConfig>()
-        .context("Failed to extract valid configuration")?;
-
-    Ok(config)
 }
