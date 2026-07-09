@@ -27,12 +27,13 @@ async fn client_sse(
     let reader = state.redis_reader().await?;
     let (events, last_id, is_end) = reader.prev_sse_events(&key, start_id.as_deref()).await?;
     let prev_events_stream = futures::stream::iter(events);
-    if is_end {
-        return Ok(Sse::new(prev_events_stream.map(Ok).boxed()));
-    }
 
-    let stream = prev_events_stream.chain(reader.stream_sse_events(&key, &last_id));
-    Ok(Sse::new(stream.map(Ok).boxed()))
+    if is_end {
+        Ok(Sse::new(prev_events_stream.map(Ok).boxed()))
+    } else {
+        let stream = prev_events_stream.chain(reader.stream_sse_events(&key, &last_id));
+        Ok(Sse::new(stream.map(Ok).boxed()))
+    }
 }
 
 async fn client_ws(
@@ -56,14 +57,14 @@ async fn client_ws(
     if is_end {
         Ok(ws.on_upgrade(async |socket| {
             if let Err(err) = prev_events_stream.map(Ok).forward(socket).await {
-                tracing::warn!("WebSocket stream failed: {err}");
+                tracing::warn!("WebSocket stream error: {err}");
             }
         }))
     } else {
         let stream = prev_events_stream.chain(reader.stream_ws_events(&key, &last_id));
         Ok(ws.on_upgrade(async |socket| {
             if let Err(err) = stream.map(Ok).forward(socket).await {
-                tracing::warn!("WebSocket stream failed: {err}");
+                tracing::warn!("WebSocket stream error: {err}");
             }
         }))
     }

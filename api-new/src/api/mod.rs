@@ -9,7 +9,7 @@ pub mod hello;
 
 /// Adds all API routes to the server under `/api`
 pub fn plugin() -> AdHocPlugin<AppState, AppConfig> {
-    AdHocPlugin::named("API routes").on_setup(|app, router: axum::Router<AppState>| {
+    AdHocPlugin::<AppState, AppConfig>::named("API routes").on_setup(|app, router| {
         let api_routes = axum::Router::new()
             .nest("/hello", hello::routes())
             // protect all previous routes with API key
