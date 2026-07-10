@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use axum::response::sse;
 use fred::types::FromValue;
 use schemars::JsonSchema;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::redis::constants;
 
@@ -84,4 +84,26 @@ pub struct StreamEvent {
     /// Event data
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<String>,
+}
+
+/// Event to ingest / add to the stream
+#[derive(Serialize, Deserialize, JsonSchema)]
+pub struct AddEvent {
+    /// Name/type of the event
+    pub event: String,
+    /// Event data
+    pub data: Option<String>,
+}
+
+impl AddEvent {
+    /// Convert to Redis entry
+    pub fn into_entry(self) -> Vec<(&'static str, String)> {
+        match self.data {
+            Some(data) => vec![
+                (constants::EVENT_KEY, self.event),
+                (constants::DATA_KEY, data),
+            ],
+            None => vec![(constants::EVENT_KEY, self.event)],
+        }
+    }
 }

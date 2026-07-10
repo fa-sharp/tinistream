@@ -30,9 +30,8 @@ impl StreamService {
     /// Get the URL for streaming SSE events from the given Redis stream
     pub fn sse_url(&self, key: &str) -> String {
         format!(
-            "{}/api/client/sse?key={}{}",
+            "{}/api/client/sse?key={}",
             self.config.base_url,
-            self.config.key_prefix,
             urlencoding::encode(key)
         )
     }
@@ -40,9 +39,8 @@ impl StreamService {
     /// Get the URL for streaming WebSocket events from the given Redis stream
     pub fn ws_url(&self, key: &str) -> String {
         format!(
-            "{}/api/client/ws?key={}{}",
+            "{}/api/client/ws?key={}",
             &self.config.base_url,
-            &self.config.key_prefix,
             urlencoding::encode(key)
         )
     }

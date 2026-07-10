@@ -23,13 +23,13 @@ impl RedisWriter {
         }
     }
 
-    /// Writes a single event to the stream, while checking if the stream is active.
-    /// Returns the ID of the written event, or `None` if the stream is not active.
-    pub async fn write_event(
+    /// Write events to the stream, while checking if the stream is active.
+    /// Returns the IDs of the written events, or `None` if the stream is not active.
+    pub async fn write_events(
         &self,
         key: &str,
-        event: Vec<(&str, &str)>,
-    ) -> FredResult<Option<RedisStr>> {
+        events: impl IntoIterator<Item = Vec<(&str, String)>>,
+    ) -> FredResult<Option<Vec<RedisStr>>> {
         let stream_key = self.stream.stream_key(key);
         let meta_key = self.stream.meta_key(key);
 
@@ -37,17 +37,22 @@ impl RedisWriter {
         let _: () = pipeline
             .hget(meta_key, constants::META_STATUS_FIELD)
             .await?;
-        let _: () = pipeline
-            .xadd(stream_key, true, ("MAXLEN", "~", self.max_len), "*", event)
-            .await?;
-        let (status, id): (Option<RedisStr>, Option<RedisStr>) = pipeline.all().await?;
+        for event in events {
+            let _: () = pipeline
+                .xadd(&stream_key, true, ("MAXLEN", "~", self.max_len), "*", event)
+                .await?;
+        }
+        let responses: Vec<Option<RedisStr>> = pipeline.all().await?;
+
+        let status = responses.first().cloned();
+        let ids: Vec<_> = responses.into_iter().skip(1).flatten().collect();
 
         match status {
-            Some(status) if *status == constants::StreamStatus::Active => Ok(id),
+            Some(Some(status)) if *status == constants::StreamStatus::Active => Ok(Some(ids)),
             _ => {
-                if let Some(id) = id {
-                    // Stream is not active, delete the added event
-                    let _: () = self.client.xdel(key, id).await?;
+                // Stream is not active, delete the added events
+                if !ids.is_empty() {
+                    let _: () = self.client.xdel(&stream_key, ids).await?;
                 }
                 Ok(None)
             }
