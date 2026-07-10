@@ -1,7 +1,7 @@
 use std::{convert::Infallible, time::Duration};
 
 use axum::{
-    extract::{State, WebSocketUpgrade, ws::Message as WsMessage},
+    extract::{WebSocketUpgrade, ws::Message as WsMessage},
     response::{Sse, sse::Event as SseEvent},
     routing::get,
 };
@@ -9,7 +9,7 @@ use futures::{Stream, StreamExt};
 
 use crate::{
     error::AppResult,
-    extractors::{ClientTokenAuth, LastEventId},
+    extractors::{ClientTokenAuth, LastEventId, ReaderClient},
     state::AppState,
 };
 
@@ -22,9 +22,8 @@ pub fn routes() -> axum::Router<AppState> {
 async fn client_sse(
     ClientTokenAuth { key }: ClientTokenAuth,
     LastEventId(start_id): LastEventId,
-    State(state): State<AppState>,
+    ReaderClient(reader): ReaderClient,
 ) -> AppResult<Sse<impl Stream<Item = Result<SseEvent, Infallible>>>> {
-    let reader = state.redis_reader().await?;
     let (events, last_id, is_end) = reader.prev_sse_events(&key, start_id.as_deref()).await?;
     let prev_events_stream = futures::stream::iter(events);
 
@@ -39,11 +38,9 @@ async fn client_sse(
 async fn client_ws(
     ClientTokenAuth { key }: ClientTokenAuth,
     LastEventId(start_id): LastEventId,
-    State(state): State<AppState>,
+    ReaderClient(reader): ReaderClient,
     ws: WebSocketUpgrade,
 ) -> AppResult<axum::response::Response> {
-    let reader = state.redis_reader().await?;
-
     let (prev_events, last_id, is_end) = reader.prev_json_events(&key, start_id.as_deref()).await?;
     let prev_events_stream = async_stream::stream! {
         // Slight delay needed here for initial WebSocket connection/handshake
@@ -57,14 +54,14 @@ async fn client_ws(
     if is_end {
         Ok(ws.on_upgrade(async |socket| {
             if let Err(err) = prev_events_stream.map(Ok).forward(socket).await {
-                tracing::warn!("WebSocket stream error: {err}");
+                tracing::warn!("WebSocket client stream error: {err}");
             }
         }))
     } else {
         let stream = prev_events_stream.chain(reader.stream_ws_events(&key, &last_id));
         Ok(ws.on_upgrade(async |socket| {
             if let Err(err) = stream.map(Ok).forward(socket).await {
-                tracing::warn!("WebSocket stream error: {err}");
+                tracing::warn!("WebSocket client stream error: {err}");
             }
         }))
     }

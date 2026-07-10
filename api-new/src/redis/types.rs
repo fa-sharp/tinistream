@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use axum::response::sse;
 use fred::types::FromValue;
+use schemars::JsonSchema;
+use serde::Serialize;
 
 use crate::redis::constants;
 
@@ -68,4 +70,18 @@ impl RedisEntry {
         fields.insert("id".into(), id);
         fields
     }
+}
+
+/// Formatted stream event
+#[derive(Serialize, JsonSchema)]
+pub struct StreamEvent {
+    /// ID of the event
+    pub id: String,
+    /// Time of the event (ISO 8601 format)
+    pub time: String,
+    /// Name/type of the event
+    pub event: String,
+    /// Event data
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<String>,
 }

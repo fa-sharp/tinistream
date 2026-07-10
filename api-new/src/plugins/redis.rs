@@ -46,18 +46,13 @@ pub fn plugin() -> Plugin {
             app.insert(exclusive_pool)?;
             Ok(app)
         })
-        .on_shutdown(|app| {
-            let static_pool = app.state().static_pool.clone();
-            let exclusive_pool = app.state().exclusive_pool.clone();
-
-            async move {
-                tracing::info!("Shutting down Redis pools");
-                if let Err(err) = static_pool.quit().await {
-                    tracing::warn!("Failed to shutdown Redis static pool: {err}");
-                }
-                exclusive_pool.manager().shutdown().await;
-
-                Ok(())
+        .on_shutdown(async |app| {
+            tracing::info!("Shutting down Redis pools");
+            if let Err(err) = app.state().static_pool.quit().await {
+                tracing::warn!("Failed to shutdown Redis static pool: {err}");
             }
+            app.state().exclusive_pool.manager().shutdown().await;
+
+            Ok(())
         })
 }

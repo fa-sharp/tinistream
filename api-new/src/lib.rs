@@ -12,7 +12,7 @@ mod redis;
 mod state;
 
 pub async fn create_app() -> anyhow::Result<InitializedApp<AppState, AppConfig>> {
-    let app = App::from_env_and_file("config.toml", "STREAMER_")?
+    let app = App::from_env_and_file("STREAMER_", "config.toml")?
         .register(plugins::crypto::plugin()) // Add token encryption
         .register(plugins::redis::plugin()) // Connect and setup Redis pools
         .register(api::plugin()) // Add API routes

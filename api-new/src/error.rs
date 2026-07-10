@@ -23,10 +23,14 @@ impl From<anyhow::Error> for AppError {
         Self::internal(error)
     }
 }
-
 impl From<ExclusiveClientPoolError> for AppError {
     fn from(error: ExclusiveClientPoolError) -> Self {
-        Self::internal(anyhow::Error::from(error).context("retrieve exclusive client from pool"))
+        Self::internal(anyhow::Error::from(error).context("failed to get exclusive Redis client"))
+    }
+}
+impl From<fred::error::Error> for AppError {
+    fn from(error: fred::error::Error) -> Self {
+        Self::internal(anyhow::Error::from(error).context("Redis client error"))
     }
 }
 

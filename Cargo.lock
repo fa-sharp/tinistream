@@ -241,7 +241,7 @@ dependencies = [
 [[package]]
 name = "axum-plugin"
 version = "0.3.0"
-source = "git+https://git.fasharp.io/fa-sharp/axum-plugin?rev=306723bd0e#306723bd0ebdcb70c3b3771c0a451288ba8c318f"
+source = "git+https://git.fasharp.io/fa-sharp/axum-plugin?rev=be17dc9aec#be17dc9aec0f1138131052924befe564834798f9"
 dependencies = [
  "anyhow",
  "axum",
@@ -255,7 +255,7 @@ dependencies = [
 [[package]]
 name = "axum-plugin-macros"
 version = "0.1.0"
-source = "git+https://git.fasharp.io/fa-sharp/axum-plugin?rev=306723bd0e#306723bd0ebdcb70c3b3771c0a451288ba8c318f"
+source = "git+https://git.fasharp.io/fa-sharp/axum-plugin?rev=be17dc9aec#be17dc9aec0f1138131052924befe564834798f9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3023,6 +3023,7 @@ dependencies = [
  "axum-helmet",
  "axum-plugin",
  "base64",
+ "bytes-utils",
  "chacha20poly1305",
  "deadpool 0.13.0",
  "dotenvy",
@@ -3043,6 +3044,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "urlencoding",
 ]
 
 [[package]]

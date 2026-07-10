@@ -1,6 +1,6 @@
 use axum::extract::FromRequestParts;
 
-/// Extractor to get the Last-Event-Id header
+/// Extractor to get the `Last-Event-Id` header
 pub struct LastEventId(pub Option<String>);
 
 impl<S: Send + Sync> FromRequestParts<S> for LastEventId {

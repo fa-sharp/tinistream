@@ -26,6 +26,8 @@ pub struct AppConfig {
     pub redis_ttl: u32,
     /// Timeout in seconds when connecting to Redis (default: 6 seconds)
     pub redis_timeout: u32,
+    /// Prefix for all streams in Redis (default: "tinistream:")
+    pub key_prefix: String,
     /// Timeout in seconds for client connections if there's no activity in the Redis stream (default: 5 minutes)
     pub client_timeout: u32,
     /// Maximum number of events in a Redis stream (default: 5000)
@@ -54,6 +56,7 @@ impl Default for AppConfig {
             redis_pool: 4,
             redis_timeout: 6,
             redis_ttl: 10 * 60,
+            key_prefix: "tinistream:".into(),
             client_timeout: 5 * 60,
             max_stream_len: 5000,
             max_clients: 50,

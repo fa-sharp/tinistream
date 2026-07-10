@@ -7,7 +7,7 @@ use axum_plugin::{AppState, TypeMap};
 use crate::{
     auth::{ClientToken, TokenEncryption},
     config::AppConfig,
-    redis::{ExclusiveClientPool, ExclusiveClientPoolError, RedisClient, RedisReader},
+    redis::{ExclusiveClientPool, StreamService},
 };
 
 /// App state stored in the Axum router
@@ -42,13 +42,7 @@ impl AppState {
     pub fn client_tokens(&self) -> ClientToken<'_> {
         ClientToken::new(&self.encryptor)
     }
-
-    pub fn redis_client(&self) -> RedisClient<'_> {
-        RedisClient::new(self.static_pool.next(), self.config.max_stream_len)
-    }
-
-    pub async fn redis_reader(&self) -> Result<RedisReader, ExclusiveClientPoolError> {
-        let client = self.exclusive_pool.get().await?;
-        Ok(RedisReader::new(client, self.config.client_timeout))
+    pub fn streams(&self) -> StreamService {
+        StreamService::new(Arc::clone(&self.config))
     }
 }

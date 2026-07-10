@@ -26,7 +26,7 @@ impl TokenEncryption {
         Ok(Self { cipher })
     }
 
-    /// Encrypts a string using AES-256-GCM and returns a base64-encoded token with the version, nonce, and ciphertext.
+    /// Encrypts a string and returns a base64-encoded token with the version, nonce, and ciphertext.
     pub fn encrypt_base64(&self, plaintext: &str) -> Result<String, AuthError> {
         let nonce = XNonce::generate();
         let ciphertext = self
@@ -69,7 +69,7 @@ mod tests {
     use super::*;
 
     fn get_test_crypto() -> TokenEncryption {
-        // 64-character hex key for AES-256 (32 bytes)
+        // 64-character hex key (32 bytes)
         let test_key = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
         TokenEncryption::new(test_key).unwrap()
     }
