@@ -27,7 +27,9 @@ impl<S: Send + Sync> FromRequest<S> for JsonStream {
 
         let stream = line_reader.filter_map(|line_result| match line_result {
             Ok(line) => {
-                if line.trim_start().as_bytes().starts_with(b"{") {
+                if line.trim().is_empty() {
+                    None
+                } else if line.trim_start().as_bytes().starts_with(b"{") {
                     match serde_json::from_str::<AddEvent>(&line) {
                         Ok(event) => Some(Ok(event)),
                         Err(err) => Some(Err(std::io::Error::new(
@@ -36,7 +38,10 @@ impl<S: Send + Sync> FromRequest<S> for JsonStream {
                         ))),
                     }
                 } else {
-                    None
+                    Some(Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "expected JSON object line",
+                    )))
                 }
             }
             Err(e) => match e {

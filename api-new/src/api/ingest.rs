@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::{AppError, AppResult},
     extractors::{JsonStream, WriterClient},
-    redis::AddEvent,
+    redis::{AddEvent, RedisWriter},
     state::AppState,
 };
 
@@ -26,32 +26,25 @@ struct StreamKeyQuery {
     key: String,
 }
 
+/// Max number of events to ingest at once
+const INGEST_BATCH_SIZE: usize = 50;
+
 async fn json_stream(
     Query(query): Query<StreamKeyQuery>,
     WriterClient(writer): WriterClient,
     JsonStream(stream): JsonStream,
 ) -> AppResult<Json<JsonStreamResponse>> {
-    let mut stream_chunks = stream.try_ready_chunks(10);
+    let mut stream_chunks = stream.try_ready_chunks(INGEST_BATCH_SIZE);
     let mut num_events = 0;
 
     while let Some(read_result) = stream_chunks.next().await {
         match read_result {
             Ok(events) => {
-                let entries = events.into_iter().map(AddEvent::into_entry);
-                if let Some(ids) = writer.write_events(&query.key, entries).await? {
-                    num_events += ids.len();
-                } else {
-                    return Err(AppError::bad_request("stream not active"));
-                }
+                num_events += write_event_batch(&writer, &query.key, events).await?;
             }
-            Err(TryReadyChunksError(events, _err)) => {
-                // Try to write the successfully read events
-                let entries = events.into_iter().map(AddEvent::into_entry);
-                if let Some(ids) = writer.write_events(&query.key, entries).await? {
-                    num_events += ids.len();
-                } else {
-                    return Err(AppError::bad_request("stream not active"));
-                }
+            Err(TryReadyChunksError(events, err)) => {
+                let _ = write_event_batch(&writer, &query.key, events).await?;
+                return Err(AppError::bad_request(format!("invalid event(s): {err}")));
             }
         }
     }
@@ -70,39 +63,45 @@ async fn ws_stream(
     ws: WebSocketUpgrade,
 ) -> axum::response::Response {
     let response = ws.on_upgrade(async move |ws| {
-        use axum::extract::ws::Message;
-
         let (mut ws_writer, ws_reader) = ws.split();
-        let mut stream_chunks = transform_ws_stream(ws_reader).try_ready_chunks(10);
+        let mut stream_chunks = transform_ws_stream(ws_reader).try_ready_chunks(INGEST_BATCH_SIZE);
 
         while let Some(result) = stream_chunks.next().await {
             match result {
-                Ok(events) => {
-                    let entries = events.into_iter().map(|e| e.into_entry());
-                    match writer.write_events(&query.key, entries).await {
-                        Ok(Some(ids)) => {
-                            let message = format!("success: added {} events", ids.len());
-                            let _ = ws_writer.send(Message::text(message)).await;
+                Ok(items) => {
+                    let should_close = items.iter().any(|item| matches!(item, WsStreamItem::Close));
+                    let events = items.into_iter().filter_map(WsStreamItem::into_event);
+
+                    match write_event_batch(&writer, &query.key, events).await {
+                        Ok(n) if n > 0 => {
+                            let _ = send_ws_response(&mut ws_writer, WsResponse::success(n)).await;
                         }
-                        Ok(None) => {
-                            let message = "error: stream is not active";
-                            let _ = ws_writer.send(Message::text(message)).await;
-                            break;
-                        }
+                        Ok(_) => {}
                         Err(err) => {
-                            let _ = ws_writer.send(Message::text(format!("error: {err}"))).await;
+                            let response = WsResponse::error(err.to_string());
+                            let _ = send_ws_response(&mut ws_writer, response).await;
                         }
+                    }
+
+                    if should_close {
+                        break;
                     }
                 }
                 Err(TryReadyChunksError(events, err)) => {
-                    // Try to write the successfully read events, then send error
-                    let entries = events.into_iter().map(|e| e.into_entry());
-                    if let Ok(Some(ids)) = writer.write_events(&query.key, entries).await {
-                        let message = format!("success: added {} events", ids.len());
-                        let _ = ws_writer.send(Message::text(message)).await;
+                    let should_close = events
+                        .iter()
+                        .any(|item| matches!(item, WsStreamItem::Close));
+                    let events = events.into_iter().filter_map(WsStreamItem::into_event);
+                    if let Ok(n) = write_event_batch(&writer, &query.key, events).await
+                        && n > 0
+                    {
+                        let _ = send_ws_response(&mut ws_writer, WsResponse::success(n)).await;
                     }
 
-                    let _ = ws_writer.send(Message::text(format!("error: {err}"))).await;
+                    let _ = send_ws_response(&mut ws_writer, WsResponse::error(err)).await;
+                    if should_close {
+                        break;
+                    }
                 }
             }
         }
@@ -111,18 +110,80 @@ async fn ws_stream(
     response
 }
 
+async fn write_event_batch(
+    writer: &RedisWriter,
+    key: &str,
+    events: impl IntoIterator<Item = AddEvent>,
+) -> AppResult<usize> {
+    let entries: Vec<_> = events.into_iter().map(AddEvent::into_entry).collect();
+    if entries.is_empty() {
+        return Ok(0);
+    }
+
+    match writer.write_events(key, entries).await? {
+        Some(ids) => Ok(ids.len()),
+        None => Err(AppError::bad_request("stream not active")),
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "status", rename_all = "lowercase")]
+enum WsResponse {
+    Success { num_events: usize },
+    Error { message: String },
+}
+impl WsResponse {
+    fn success(num_events: usize) -> Self {
+        Self::Success { num_events }
+    }
+    fn error(message: impl Into<String>) -> Self {
+        Self::Error {
+            message: message.into(),
+        }
+    }
+}
+
+enum WsStreamItem {
+    Event(AddEvent),
+    Close,
+}
+impl WsStreamItem {
+    fn into_event(self) -> Option<AddEvent> {
+        match self {
+            Self::Event(event) => Some(event),
+            Self::Close => None,
+        }
+    }
+}
+
+/// Send a WebSocket response
+async fn send_ws_response<S>(ws_writer: &mut S, response: WsResponse) -> Result<(), S::Error>
+where
+    S: futures::Sink<axum::extract::ws::Message> + Unpin,
+{
+    let text = serde_json::to_string(&response).unwrap_or_default();
+    ws_writer.send(axum::extract::ws::Message::text(text)).await
+}
+
 /// Transform the incoming WebSocket stream into events
 fn transform_ws_stream(
     ws_stream: impl Stream<Item = Result<axum::extract::ws::Message, axum::Error>>,
-) -> impl Stream<Item = Result<AddEvent, String>> {
+) -> impl Stream<Item = Result<WsStreamItem, String>> {
     tokio_stream::StreamExt::filter_map(ws_stream, |msg_result| match msg_result {
         Ok(message) => match message {
             axum::extract::ws::Message::Text(text) => {
                 match serde_json::from_str::<AddEvent>(&text) {
-                    Ok(event) => Some(Ok(event)),
+                    Ok(event) => Some(Ok(WsStreamItem::Event(event))),
                     Err(err) => Some(Err(err.to_string())),
                 }
             }
+            axum::extract::ws::Message::Binary(bytes) => {
+                match serde_json::from_slice::<AddEvent>(&bytes) {
+                    Ok(event) => Some(Ok(WsStreamItem::Event(event))),
+                    Err(err) => Some(Err(err.to_string())),
+                }
+            }
+            axum::extract::ws::Message::Close(_) => Some(Ok(WsStreamItem::Close)),
             _ => None,
         },
         Err(err) => Some(Err(err.to_string())),

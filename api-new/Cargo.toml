@@ -23,7 +23,7 @@ figment = { version = "0.10.19", features = ["env"] }
 fred = {
   version = "10.1.0",
   default-features = false,
-  features = ["i-hashes", "i-keys", "i-streams", "transactions"]
+  features = ["i-hashes", "i-keys", "i-scripts", "i-streams", "transactions"]
 }
 futures = "0.3.32"
 hex = "0.4.3"

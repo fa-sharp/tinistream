@@ -1,4 +1,4 @@
-use fred::prelude::{FredResult, HashesInterface, StreamsInterface};
+use fred::prelude::{FredResult, LuaInterface};
 
 use crate::redis::{ExclusiveClientManager, StreamService, constants, types::RedisStr};
 
@@ -32,30 +32,52 @@ impl RedisWriter {
     ) -> FredResult<Option<Vec<RedisStr>>> {
         let stream_key = self.stream.stream_key(key);
         let meta_key = self.stream.meta_key(key);
+        let mut args = vec![
+            constants::META_STATUS_FIELD.to_owned(),
+            constants::StreamStatus::Active.as_str().to_owned(),
+            self.max_len.to_string(),
+        ];
 
-        let pipeline = self.client.pipeline();
-        let _: () = pipeline
-            .hget(meta_key, constants::META_STATUS_FIELD)
-            .await?;
         for event in events {
-            let _: () = pipeline
-                .xadd(&stream_key, true, ("MAXLEN", "~", self.max_len), "*", event)
-                .await?;
-        }
-        let responses: Vec<Option<RedisStr>> = pipeline.all().await?;
-
-        let status = responses.first().cloned();
-        let ids: Vec<_> = responses.into_iter().skip(1).flatten().collect();
-
-        match status {
-            Some(Some(status)) if *status == constants::StreamStatus::Active => Ok(Some(ids)),
-            _ => {
-                // Stream is not active, delete the added events
-                if !ids.is_empty() {
-                    let _: () = self.client.xdel(&stream_key, ids).await?;
-                }
-                Ok(None)
+            args.push(event.len().to_string());
+            for (field, value) in event {
+                args.push(field.to_owned());
+                args.push(value);
             }
         }
+
+        self.client
+            .eval(WRITE_EVENTS_SCRIPT, (stream_key, meta_key), args)
+            .await
     }
 }
+
+/// Lua script to atomatically check for an active stream and write events
+const WRITE_EVENTS_SCRIPT: &str = r#"
+if redis.call('HGET', KEYS[2], ARGV[1]) ~= ARGV[2] then
+  return nil
+end
+
+local ids = {}
+local arg_index = 4
+while arg_index <= #ARGV do
+  local field_count = tonumber(ARGV[arg_index])
+  arg_index = arg_index + 1
+
+  local fields = {}
+  for _ = 1, field_count do
+    table.insert(fields, ARGV[arg_index])
+    table.insert(fields, ARGV[arg_index + 1])
+    arg_index = arg_index + 2
+  end
+
+  local command = {'XADD', KEYS[1], 'MAXLEN', '~', ARGV[3], '*'}
+  for _, field in ipairs(fields) do
+    table.insert(command, field)
+  end
+
+  table.insert(ids, redis.call(unpack(command)))
+end
+
+return ids
+"#;
