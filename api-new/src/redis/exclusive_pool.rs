@@ -85,7 +85,9 @@ impl deadpool::managed::Manager for ExclusiveClientManager {
                 let mut lock = all_clients.lock().await;
                 lock.extract_if(.., |c| c.id() == client_id).next()
             };
-            if let Some(client) = client {
+            if let Some(client) = client
+                && client.is_connected()
+            {
                 let _ = client.quit().await;
             }
         });

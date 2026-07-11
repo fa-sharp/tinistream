@@ -59,6 +59,10 @@ impl AppError {
         Self::new(StatusCode::NOT_FOUND, message)
     }
 
+    pub fn too_many_requests() -> Self {
+        Self::new(StatusCode::TOO_MANY_REQUESTS, "too many requests")
+    }
+
     pub fn internal(error: anyhow::Error) -> Self {
         Self {
             status: StatusCode::INTERNAL_SERVER_ERROR,

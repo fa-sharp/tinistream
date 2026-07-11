@@ -35,14 +35,16 @@ impl FromRequestParts<AppState> for ReaderClient {
         _parts: &mut axum::http::request::Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let exclusive_client = state.exclusive_pool.get().await?;
-        let reader = RedisReader::new(
-            exclusive_client,
-            state.config.client_timeout,
-            state.streams(),
-        );
-
-        Ok(Self(reader))
+        match state.exclusive_pool.get().await {
+            Ok(client) => {
+                let reader = RedisReader::new(client, state.config.client_timeout, state.streams());
+                Ok(Self(reader))
+            }
+            Err(err) => match err {
+                deadpool::managed::PoolError::Timeout(_) => Err(AppError::too_many_requests()),
+                err => Err(err.into()),
+            },
+        }
     }
 }
 
@@ -52,13 +54,15 @@ impl FromRequestParts<AppState> for WriterClient {
         _parts: &mut axum::http::request::Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let exclusive_client = state.exclusive_pool.get().await?;
-        let writer = RedisWriter::new(
-            exclusive_client,
-            state.config.max_stream_len,
-            state.streams(),
-        );
-
-        Ok(Self(writer))
+        match state.exclusive_pool.get().await {
+            Ok(client) => {
+                let writer = RedisWriter::new(client, state.config.max_stream_len, state.streams());
+                Ok(Self(writer))
+            }
+            Err(err) => match err {
+                deadpool::managed::PoolError::Timeout(_) => Err(AppError::too_many_requests()),
+                err => Err(err.into()),
+            },
+        }
     }
 }

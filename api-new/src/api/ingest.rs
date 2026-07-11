@@ -9,13 +9,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{AppError, AppResult},
-    extractors::{JsonStream, WriterClient},
+    extractors::{JsonStream, StaticClient, WriterClient},
     redis::{AddEvent, RedisWriter},
     state::AppState,
 };
 
 pub fn routes() -> axum::Router<AppState> {
     axum::Router::new()
+        .route("/add", routing::post(add_events))
         .route("/add/json-stream", routing::post(json_stream))
         .route("/add/ws-stream", routing::get(ws_stream))
 }
@@ -26,14 +27,40 @@ struct StreamKeyQuery {
     key: String,
 }
 
-/// Max number of events to ingest at once
+#[derive(Deserialize, JsonSchema)]
+struct AddEventsRequest {
+    /// Key of the stream to write to
+    key: String,
+    /// Events to add to the stream
+    events: Vec<AddEvent>,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+struct AddEventsResponse {
+    num_events: usize,
+}
+
+async fn add_events(
+    StaticClient(redis): StaticClient,
+    Json(input): Json<AddEventsRequest>,
+) -> AppResult<Json<AddEventsResponse>> {
+    if !redis.is_active(&input.key).await? {
+        return Err(AppError::bad_request("stream not active"));
+    }
+    let entries = input.events.into_iter().map(AddEvent::into_entry);
+    let num_events = redis.write_events(&input.key, entries).await?.len();
+
+    Ok(Json(AddEventsResponse { num_events }))
+}
+
+/// Max number of streamed events to ingest at once
 const INGEST_BATCH_SIZE: usize = 50;
 
 async fn json_stream(
     Query(query): Query<StreamKeyQuery>,
     WriterClient(writer): WriterClient,
     JsonStream(stream): JsonStream,
-) -> AppResult<Json<JsonStreamResponse>> {
+) -> AppResult<Json<AddEventsResponse>> {
     let mut stream_chunks = stream.try_ready_chunks(INGEST_BATCH_SIZE);
     let mut num_events = 0;
 
@@ -49,12 +76,7 @@ async fn json_stream(
         }
     }
 
-    Ok(Json(JsonStreamResponse { num_events }))
-}
-
-#[derive(Debug, Serialize, JsonSchema)]
-struct JsonStreamResponse {
-    num_events: usize,
+    Ok(Json(AddEventsResponse { num_events }))
 }
 
 async fn ws_stream(

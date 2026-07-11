@@ -70,7 +70,7 @@ impl RedisClient {
     pub async fn write_events(
         &self,
         key: &str,
-        events: impl IntoIterator<Item = Vec<(&str, &str)>>,
+        events: impl IntoIterator<Item = Vec<(&str, String)>>,
     ) -> FredResult<Vec<RedisStr>> {
         let stream_key = self.stream.stream_key(key);
 
