@@ -37,8 +37,8 @@ impl ExclusiveClientManager {
             .max_size(max_clients)
             .runtime(deadpool::Runtime::Tokio1)
             .create_timeout(Some(timeout))
-            .recycle_timeout(Some(timeout))
             .wait_timeout(Some(timeout))
+            .recycle_timeout(Some(timeout))
             .build()
     }
 
@@ -72,22 +72,35 @@ impl deadpool::managed::Manager for ExclusiveClientManager {
         client: &mut fred::clients::Client,
         _: &deadpool::managed::Metrics,
     ) -> deadpool::managed::RecycleResult<Self::Error> {
-        client.init().await?;
+        /// Ping options when recycling a Redis client - quickly ensures a working connection
+        const PING_OPTIONS: &fred::prelude::Options = &fred::prelude::Options {
+            timeout: Some(Duration::from_secs(1)),
+            fail_fast: true,
+            max_attempts: Some(1),
+            max_redirections: None,
+            cluster_node: None,
+            cluster_hash: None,
+        };
+
+        if !client.is_connected() {
+            client.init().await?;
+        }
+        let _: () = client.with_options(PING_OPTIONS).ping(None).await?;
+
         Ok(())
     }
 
     fn detach(&self, client: &mut Self::Type) {
-        let client_id = client.id().to_owned();
+        let client = client.clone();
         let all_clients = Arc::clone(&self.clients);
 
         tokio::spawn(async move {
-            let client = {
-                let mut lock = all_clients.lock().await;
-                lock.extract_if(.., |c| c.id() == client_id).next()
-            };
-            if let Some(client) = client
-                && client.is_connected()
             {
+                let mut all_clients_lock = all_clients.lock().await;
+                all_clients_lock.retain(|c| c.id() != client.id());
+            }
+
+            if client.is_connected() {
                 let _ = client.quit().await;
             }
         });
