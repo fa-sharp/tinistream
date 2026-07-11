@@ -1,6 +1,9 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
-use fred::prelude::{HashesInterface, StreamsInterface};
+use fred::{
+    interfaces::ClientLike,
+    prelude::{HashesInterface, StreamsInterface},
+};
 use futures::Stream;
 use time::{UtcDateTime, format_description::well_known::Rfc3339};
 
@@ -212,6 +215,10 @@ impl RedisReader {
     ) -> RedisResult<Vec<RedisEntry>> {
         let (_key, events) = self
             .client
+            .with_options(&fred::prelude::Options {
+                timeout: Some(Duration::from_millis(self.client_timeout_ms)),
+                ..Default::default()
+            })
             .xread::<Option<Vec<(RedisStr, _)>>, _, _>(count, block, stream_key, start_event_id)
             .await?
             .and_then(|mut streams| streams.pop()) // only reading 1 stream in the command

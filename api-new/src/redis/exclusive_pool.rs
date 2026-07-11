@@ -8,6 +8,11 @@ pub type ExclusiveClientPool = deadpool::managed::Pool<ExclusiveClientManager>;
 /// The error when failing to get a client from the exclusive pool
 pub type ExclusiveClientPoolError = deadpool::managed::PoolError<fred::error::Error>;
 
+/// Interval to check for and clean up idle clients.
+const IDLE_TASK_INTERVAL: Duration = Duration::from_secs(10);
+/// Shut down clients after this period of inactivity.
+const IDLE_TIME: Duration = Duration::from_secs(30);
+
 /// Deadpool implementation for a dynamic pool of exclusive Redis clients.
 #[derive(Debug)]
 pub struct ExclusiveClientManager {
@@ -38,22 +43,14 @@ impl ExclusiveClientManager {
     }
 
     pub async fn shutdown(&self) {
-        for client in self.clients.lock().await.iter() {
-            if let Err(err) = client.quit().await {
-                tracing::warn!("Failed to shutdown Redis exclusive client: {err}");
-            }
-        }
+        futures::future::join_all(self.clients.lock().await.iter().map(|c| c.quit())).await;
     }
 
-    pub async fn cleanup_task(
-        exclusive_pool: ExclusiveClientPool,
-        interval: Duration,
-        idle_time: Duration,
-    ) {
-        let mut interval = tokio::time::interval(interval);
+    pub async fn cleanup_task(exclusive_pool: ExclusiveClientPool) {
+        let mut interval = tokio::time::interval(IDLE_TASK_INTERVAL);
         loop {
             interval.tick().await;
-            exclusive_pool.retain(|_, metrics| metrics.last_used() < idle_time);
+            exclusive_pool.retain(|_, metrics| metrics.last_used() < IDLE_TIME);
         }
     }
 }
@@ -75,24 +72,21 @@ impl deadpool::managed::Manager for ExclusiveClientManager {
         client: &mut fred::clients::Client,
         _: &deadpool::managed::Metrics,
     ) -> deadpool::managed::RecycleResult<Self::Error> {
-        if !client.is_connected() {
-            client.init().await?;
-        }
-        let _: () = client.ping(None).await?;
-
+        client.init().await?;
         Ok(())
     }
 
     fn detach(&self, client: &mut Self::Type) {
-        let client = client.clone();
-        let clients = self.clients.clone();
+        let client_id = client.id().to_owned();
+        let all_clients = Arc::clone(&self.clients);
 
         tokio::spawn(async move {
-            {
-                clients.lock().await.retain(|c| c.id() != client.id());
-            }
-            if let Err(err) = client.quit().await {
-                tracing::warn!("error disconnecting Redis client: {err}");
+            let client = {
+                let mut lock = all_clients.lock().await;
+                lock.extract_if(.., |c| c.id() == client_id).next()
+            };
+            if let Some(client) = client {
+                let _ = client.quit().await;
             }
         });
     }

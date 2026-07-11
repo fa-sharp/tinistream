@@ -8,49 +8,38 @@ use crate::{
     redis::{ExclusiveClientManager, ExclusiveClientPool},
 };
 
-/// Interval to check for and clean up idle exclusive clients.
-const IDLE_TASK_INTERVAL: Duration = Duration::from_secs(120);
-/// Shut down exclusive clients after this period of inactivity.
-const IDLE_TIME: Duration = Duration::from_secs(60 * 5);
-
 pub fn plugin() -> Plugin {
     Plugin::named("Redis")
         .on_init(async |mut app| {
             let config = app.config();
-            let redis_config = Config::from_url(&config.redis_url).context("invalid Redis URL")?;
-            let connect_timeout = Duration::from_secs(config.redis_timeout.into());
+            let redis_config = Config::from_url(&config.redis_url).context("parse Redis URL")?;
+            let timeout = Duration::from_secs(config.redis_timeout.into());
             let static_pool = Builder::from_config(redis_config)
                 .with_connection_config(|config| {
-                    config.connection_timeout = connect_timeout;
-                    config.internal_command_timeout = connect_timeout;
+                    config.connection_timeout = timeout;
+                    config.internal_command_timeout = timeout;
                     config.max_command_attempts = 2;
                 })
-                .set_policy(ReconnectPolicy::new_linear(0, 10_000, 1000))
+                .with_performance_config(|config| {
+                    config.default_command_timeout = timeout;
+                })
+                .set_policy(ReconnectPolicy::new_linear(5, 5_000, 500))
                 .build_pool(config.redis_pool)?;
-            static_pool
-                .init()
-                .await
-                .context("failed to connect to Redis")?;
+            static_pool.init().await.context("connect to Redis")?;
 
             let exclusive_manager = ExclusiveClientManager::new(static_pool.next().clone_new());
             let exclusive_pool: ExclusiveClientPool =
-                exclusive_manager.build_dynamic_pool(config.max_clients, connect_timeout)?;
+                exclusive_manager.build_dynamic_pool(config.max_clients, timeout)?;
 
-            tokio::spawn(ExclusiveClientManager::cleanup_task(
-                exclusive_pool.clone(),
-                IDLE_TASK_INTERVAL,
-                IDLE_TIME,
-            ));
+            tokio::spawn(ExclusiveClientManager::cleanup_task(exclusive_pool.clone()));
 
             app.insert(static_pool)?;
             app.insert(exclusive_pool)?;
             Ok(app)
         })
         .on_shutdown(async |app| {
-            tracing::info!("Shutting down Redis pools");
-            if let Err(err) = app.state().static_pool.quit().await {
-                tracing::warn!("Failed to shutdown Redis static pool: {err}");
-            }
+            tracing::info!("Shutting down Redis pools...");
+            let _ = app.state().static_pool.quit().await;
             app.state().exclusive_pool.manager().shutdown().await;
 
             Ok(())

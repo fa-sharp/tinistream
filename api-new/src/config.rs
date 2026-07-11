@@ -24,7 +24,7 @@ pub struct AppConfig {
     pub redis_pool: usize,
     /// Default TTL in seconds for Redis streams (default: 10 minutes)
     pub redis_ttl: u32,
-    /// Timeout in seconds when connecting to Redis (default: 6 seconds)
+    /// Timeout in seconds for Redis connections and commands (default: 3 seconds)
     pub redis_timeout: u32,
     /// Prefix for all streams in Redis (default: "tinistream:")
     pub key_prefix: String,
@@ -54,7 +54,7 @@ impl Default for AppConfig {
             secret_key: String::new(),
             redis_url: "redis://localhost".into(),
             redis_pool: 4,
-            redis_timeout: 6,
+            redis_timeout: 3,
             redis_ttl: 10 * 60,
             key_prefix: "tinistream:".into(),
             client_timeout: 5 * 60,
