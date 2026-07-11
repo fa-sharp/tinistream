@@ -1,5 +1,4 @@
-# Image versions (can be overridden by args when building)
-ARG RUST_VERSION=1.90
+ARG RUST_VERSION=1.94
 ARG DEBIAN_VERSION=bookworm
 
 ### Build server ###
@@ -7,10 +6,10 @@ FROM rust:${RUST_VERSION}-slim-${DEBIAN_VERSION} AS build
 WORKDIR /app
 
 # Copy all necessary files to build the server
-COPY Cargo.lock Cargo.toml ./
-COPY ./src ./src
-# COPY ./migrations ./migrations
-# etc...
+COPY ./Cargo.toml ./Cargo.lock ./
+COPY ./api-new ./api-new
+COPY ./api ./api
+COPY ./clients/rust ./clients/rust
 
 ARG pkg=tinistream-api
 

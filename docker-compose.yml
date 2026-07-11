@@ -10,17 +10,16 @@ services:
   streamer:
     build:
       context: .
+      dockerfile: api-new/Dockerfile
+    container_name: streamer
     ports:
       - "8080:8080"
     environment:
-      RUST_LOG: info
-      STREAMER_SERVER_ADDRESS: http://localhost:8080
+      STREAMER_PORT: 8080
+      STREAMER_LOG_LEVEL: info
+      STREAMER_BASE_URL: http://localhost:8080
       STREAMER_REDIS_URL: redis://redis:6379
-    env_file: api/.env
-    develop:
-      watch:
-        - path: api/src
-          action: rebuild
+    env_file: api-new/.env
     depends_on:
       - redis
 
