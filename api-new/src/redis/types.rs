@@ -15,35 +15,34 @@ pub type WsMessage = axum::extract::ws::Message;
 pub type RedisStr = fred::bytes_utils::Str;
 
 /// Represents a Redis stream entry retrieved via the fred client
-pub struct RedisEntry(pub RedisStr, pub HashMap<RedisStr, RedisStr>);
-
+pub struct RedisEntry {
+    pub id: RedisStr,
+    pub fields: HashMap<RedisStr, RedisStr>,
+}
 impl FromValue for RedisEntry {
     fn from_value(value: fred::prelude::Value) -> Result<Self, fred::prelude::Error> {
         let (id, fields): (RedisStr, HashMap<RedisStr, RedisStr>) = value.convert()?;
-        Ok(Self(id, fields))
+        Ok(Self { id, fields })
     }
 }
 
 impl RedisEntry {
-    /// Get the entry ID
-    pub fn id(&self) -> &str {
-        &*self.0
+    /// Get the entry ID as a string slice
+    pub fn id_str(&self) -> &str {
+        &*self.id
     }
 
     /// Check if this entry is an ending event (i.e. event field is `end` or `cancel`)
     pub fn is_end_event(&self) -> bool {
-        let Self(_id, fields) = self;
-        fields
+        self.fields
             .get(constants::EVENT_KEY)
             .is_some_and(|t| *t == constants::END_ENTRY.1 || *t == constants::CANCEL_ENTRY.1)
     }
 
     /// Convert this entry into a SSE event
     pub fn into_sse_event(self) -> SseEvent {
-        let Self(id, fields) = self;
-
         let (mut event, mut data) = (None, None);
-        for (key, value) in fields {
+        for (key, value) in self.fields {
             match &*key {
                 constants::EVENT_KEY => event = Some(value),
                 constants::DATA_KEY => data = Some(value),
@@ -52,7 +51,7 @@ impl RedisEntry {
         }
 
         SseEvent::default()
-            .id(&*id)
+            .id(&*self.id)
             .event(event.as_deref().unwrap_or_else(|| "unknown"))
             .data(data.as_deref().unwrap_or(" "))
     }
@@ -66,7 +65,7 @@ impl RedisEntry {
 
     /// Convert this entry into a hashmap (adds the entry `id` as a field)
     pub fn into_hashmap(self) -> HashMap<RedisStr, RedisStr> {
-        let Self(id, mut fields) = self;
+        let Self { id, mut fields } = self;
         fields.insert("id".into(), id);
         fields
     }

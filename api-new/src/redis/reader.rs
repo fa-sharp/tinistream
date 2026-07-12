@@ -72,17 +72,17 @@ impl RedisReader {
         let (prev_entries, _, _) = self.get_prev_events(key, None).await?;
         let events = prev_entries
             .into_iter()
-            .filter_map(|RedisEntry(id, mut data)| {
+            .filter_map(|RedisEntry { id, mut fields }| {
                 let unix_millis: i64 = id.split('-').next().unwrap_or_default().parse().ok()?;
                 let date_time = UtcDateTime::from_unix_timestamp(unix_millis / 1000).ok()?;
                 let event = StreamEvent {
                     id: (*id).to_owned(),
                     time: date_time.format(&Rfc3339).ok()?,
-                    event: data
+                    event: fields
                         .remove(constants::EVENT_KEY)
                         .as_deref()
                         .map(str::to_owned)?,
-                    data: data
+                    data: fields
                         .remove(constants::DATA_KEY)
                         .as_deref()
                         .map(str::to_owned),
@@ -117,7 +117,7 @@ impl RedisReader {
         let status = status.ok_or(RedisError::StreamNotFound)?;
         let last_event_id = prev_events
             .last()
-            .map(|RedisEntry(id, _)| id.to_owned())
+            .map(|entry| entry.id.to_owned())
             .unwrap_or_else(|| start_event_id.into());
         let is_end = *status != constants::StreamStatus::Active;
 
@@ -141,7 +141,7 @@ impl RedisReader {
                         break;
                     }
                     Ok(event) => {
-                        last_event_id = event.id().to_owned();
+                        last_event_id = event.id_str().to_owned();
                         yield event.into_sse_event();
                     }
                     Err(err) => {
@@ -171,7 +171,7 @@ impl RedisReader {
                         break;
                     }
                     Ok(event) => {
-                        last_event_id = event.id().to_owned();
+                        last_event_id = event.id_str().to_owned();
                         yield event.into_ws_message();
                     }
                     Err(err) => {
