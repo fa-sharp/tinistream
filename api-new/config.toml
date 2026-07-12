@@ -7,5 +7,5 @@ log_level = "info"
 
 redis_url = "redis://localhost:6379"
 redis_pool = 2
-redis_ttl = 1800
+stream_ttl = 1800
 max_clients = 10
