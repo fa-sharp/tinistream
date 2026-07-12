@@ -46,7 +46,7 @@ impl RedisEntry {
         for (key, value) in fields {
             match &*key {
                 constants::EVENT_KEY => event = Some(value),
-                constants::DATA_KEY => data = Some([" ", &value].concat()), // SSE spec: add space before data
+                constants::DATA_KEY => data = Some(value),
                 _ => {}
             }
         }
@@ -54,7 +54,7 @@ impl RedisEntry {
         SseEvent::default()
             .id(&*id)
             .event(event.as_deref().unwrap_or_else(|| "unknown"))
-            .data(data.unwrap_or_default())
+            .data(data.as_deref().unwrap_or(" "))
     }
 
     /// Convert this entry into a JSON WebSocket message
