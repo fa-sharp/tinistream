@@ -86,11 +86,11 @@ async fn create_stream(
         return Err(AppError::bad_request("stream at this key already exists"));
     }
     let _start_id = redis
-        .start_stream(&input.key, state.config.redis_ttl)
+        .start_stream(&input.key, state.config.stream_ttl)
         .await?;
     let token = state
         .client_tokens()
-        .create(&input.key, state.config.redis_ttl)?;
+        .create(&input.key, state.config.stream_ttl)?;
     let stream_service = state.streams();
 
     Ok(Json(StreamAccessResponse {
@@ -112,7 +112,7 @@ async fn create_token(
     }
     let token = state
         .client_tokens()
-        .create(&input.key, state.config.redis_ttl)?;
+        .create(&input.key, state.config.stream_ttl)?;
     let stream_service = state.streams();
 
     Ok(Json(StreamAccessResponse {

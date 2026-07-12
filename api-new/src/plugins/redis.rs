@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::Context;
-use fred::prelude::*;
+use fred::{prelude::*, socket2::TcpKeepalive};
 
 use crate::{
     plugins::Plugin,
@@ -19,11 +19,14 @@ pub fn plugin() -> Plugin {
                     config.connection_timeout = timeout;
                     config.internal_command_timeout = timeout;
                     config.max_command_attempts = 2;
+                    config.tcp.nodelay = Some(true);
+                    config.tcp.keepalive =
+                        Some(TcpKeepalive::new().with_time(Duration::from_secs(10)));
                 })
                 .with_performance_config(|config| {
                     config.default_command_timeout = timeout;
                 })
-                .set_policy(ReconnectPolicy::new_linear(5, 5_000, 500))
+                .set_policy(ReconnectPolicy::new_linear(5, 2_000, 500))
                 .build_pool(config.redis_pool)?;
             static_pool.init().await.context("connect to Redis")?;
 

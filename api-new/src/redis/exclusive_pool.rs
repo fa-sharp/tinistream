@@ -78,7 +78,7 @@ impl deadpool::managed::Manager for ExclusiveClientManager {
 
         /// Ping options when recycling a Redis client - quickly ensures a working connection
         const PING_OPTIONS: &fred::prelude::Options = &fred::prelude::Options {
-            timeout: Some(Duration::from_millis(500)),
+            timeout: Some(Duration::from_millis(100)), // TODO make this configurable
             fail_fast: true,
             max_attempts: Some(1),
             max_redirections: None,
