@@ -1,5 +1,7 @@
+use aide::OperationInput;
 use axum::extract::FromRequest;
 use futures::{TryStreamExt, stream::BoxStream};
+use schemars::JsonSchema;
 use tokio_stream::StreamExt;
 use tokio_util::{
     codec::{FramedRead, LinesCodec},
@@ -53,5 +55,33 @@ impl<S: Send + Sync> FromRequest<S> for JsonStream {
         });
 
         Ok(Self(Box::pin(stream)))
+    }
+}
+
+impl OperationInput for JsonStream {
+    fn operation_input(
+        ctx: &mut aide::generate::GenContext,
+        operation: &mut aide::openapi::Operation,
+    ) {
+        use aide::openapi::*;
+
+        let request_body = RequestBody {
+            description: Some("A JSON lines stream".into()),
+            content: [(
+                String::from("application/jsonl"),
+                MediaType {
+                    schema: Some(SchemaObject {
+                        json_schema: AddEvent::json_schema(&mut ctx.schema),
+                        external_docs: None,
+                        example: None,
+                    }),
+                    ..Default::default()
+                },
+            )]
+            .into(),
+            required: true,
+            ..Default::default()
+        };
+        operation.request_body = Some(ReferenceOr::Item(request_body));
     }
 }

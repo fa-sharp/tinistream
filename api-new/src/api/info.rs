@@ -1,11 +1,14 @@
-use axum::{Json, extract::State, routing};
+use axum::{Json, extract::State};
+use axum_aide_macros::api_routes;
 use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::state::AppState;
 
-pub fn routes() -> axum::Router<AppState> {
-    axum::Router::new().route("/", routing::get(get_info))
+api_routes! {
+    state: AppState,
+    tag: "info",
+    GET "/" => get_info, "Get server info";
 }
 
 /// Get information about the server

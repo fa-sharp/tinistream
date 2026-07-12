@@ -1,8 +1,8 @@
 use axum::{
     Json,
     extract::{Query, State},
-    routing,
 };
+use axum_aide_macros::api_routes;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -13,15 +13,16 @@ use crate::{
     state::AppState,
 };
 
-pub fn routes() -> axum::Router<AppState> {
-    axum::Router::new()
-        .route("/", routing::get(list_streams))
-        .route("/info", routing::get(get_stream_info))
-        .route("/events", routing::get(get_stream_events))
-        .route("/", routing::post(create_stream))
-        .route("/token", routing::post(create_token))
-        .route("/cancel", routing::post(cancel_stream))
-        .route("/end", routing::post(end_stream))
+api_routes! {
+    state: AppState,
+    tag: "stream",
+    GET "/" => list_streams, "List streams";
+    GET "/info" => get_stream_info, "Get stream info";
+    GET "/events" => get_stream_events, "Get stream events";
+    POST "/" => create_stream, "Create stream";
+    POST "/token" => create_token, "Create client token";
+    POST "/cancel" => cancel_stream, "Cancel stream";
+    POST "/end" => end_stream, "End stream";
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

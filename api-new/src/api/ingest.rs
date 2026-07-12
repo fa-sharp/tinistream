@@ -1,8 +1,8 @@
 use axum::{
     Json,
     extract::{Query, WebSocketUpgrade},
-    routing,
 };
+use axum_aide_macros::api_routes;
 use futures::{SinkExt, Stream, StreamExt, TryStreamExt, stream::TryReadyChunksError};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -14,11 +14,12 @@ use crate::{
     state::AppState,
 };
 
-pub fn routes() -> axum::Router<AppState> {
-    axum::Router::new()
-        .route("/add", routing::post(add_events))
-        .route("/add/json-stream", routing::post(json_stream))
-        .route("/add/ws-stream", routing::get(ws_stream))
+api_routes! {
+    state: AppState,
+    tag: "ingest",
+    POST "/add" => add_events, "Add events";
+    POST "/add/json-stream" => json_stream, "Add events via JSON stream";
+    GET "/add/ws-stream" => ws_stream, "Add events via WebSocket";
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

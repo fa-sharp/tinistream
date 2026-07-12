@@ -1,9 +1,12 @@
+use axum_aide_macros::api_routes;
+
 use crate::state::AppState;
 
-pub fn routes() -> axum::Router<AppState> {
-    axum::Router::new().route("/", axum::routing::get(health_handler))
+api_routes! {
+    state: AppState,
+    GET "/" => health, "Health route";
 }
 
-async fn health_handler() -> &'static str {
+async fn health() -> &'static str {
     "OK"
 }

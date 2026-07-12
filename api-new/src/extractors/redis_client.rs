@@ -1,3 +1,4 @@
+use aide::OperationIo;
 use axum::extract::FromRequestParts;
 
 use crate::{
@@ -7,10 +8,13 @@ use crate::{
 };
 
 /// Extractor: static Redis client for quick operations
+#[derive(OperationIo)]
 pub struct StaticClient(pub RedisClient);
 /// Extractor: exclusive Redis client for long-running read operations
+#[derive(OperationIo)]
 pub struct ReaderClient(pub RedisReader);
 /// Extractor: exclusive Redis client for long-running write operations
+#[derive(OperationIo)]
 pub struct WriterClient(pub RedisWriter);
 
 impl FromRequestParts<AppState> for StaticClient {

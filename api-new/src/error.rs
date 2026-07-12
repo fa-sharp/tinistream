@@ -1,3 +1,4 @@
+use aide::OperationOutput;
 use axum::{
     Json,
     http::StatusCode,
@@ -79,7 +80,7 @@ impl std::fmt::Display for AppError {
 }
 
 #[derive(Debug, Serialize)]
-struct ErrorResponse {
+pub struct ErrorResponse {
     error: ErrorBody,
 }
 
@@ -104,4 +105,8 @@ impl IntoResponse for AppError {
 
         (self.status, Json(response)).into_response()
     }
+}
+
+impl OperationOutput for AppError {
+    type Inner = ErrorResponse;
 }

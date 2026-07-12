@@ -5,9 +5,17 @@ edition = "2024"
 description = "Backend for tinistream, a lightweight streaming broker"
 
 [dependencies]
+aide = {
+  version = "0.16.0-alpha.4",
+  features = ["axum", "axum-json", "axum-query", "axum-ws", "macros", "swagger"]
+}
 anyhow = "1.0.103"
 async-stream = "0.3.6"
 axum = { version = "0.8.9", features = ["json", "query", "ws"] }
+axum-aide-macros = {
+  git = "https://git.fasharp.io/fa-sharp/axum-aide-macros",
+  rev = "5b00e645df",
+}
 axum-helmet = "1.0.2"
 axum-plugin = {
   git = "https://git.fasharp.io/fa-sharp/axum-plugin",
