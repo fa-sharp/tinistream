@@ -17,6 +17,7 @@ use crate::{
 api_routes! {
     state: AppState,
     tag: "ingest",
+    security: "api-key",
     POST "/add" => add_events, "Add events";
     POST "/add/json-stream" => json_stream, "Add events via JSON stream";
     GET "/add/ws-stream" => ws_stream, "Add events via WebSocket";

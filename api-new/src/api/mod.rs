@@ -33,10 +33,19 @@ pub fn plugin() -> AdHocPlugin<AppState, AppConfig> {
             .nest("/health", health::routes())
             // build & serve OpenAPI docs
             .finish_api_with(&mut openapi, |mut doc| {
-                doc = doc.title("Tinistream API").server(Server {
-                    url: BASE_PATH.to_owned(),
-                    ..Default::default()
-                });
+                let api_key_scheme = aide::openapi::SecurityScheme::ApiKey {
+                    location: aide::openapi::ApiKeyLocation::Header,
+                    name: app.config().api_key_header.clone(),
+                    description: Some(String::from("Authentication via API key")),
+                    extensions: Default::default(),
+                };
+                doc = doc
+                    .title("Tinistream API")
+                    .server(Server {
+                        url: BASE_PATH.to_owned(),
+                        ..Default::default()
+                    })
+                    .security_scheme("api-key", api_key_scheme);
                 for tag in ["info", "ingest", "stream"] {
                     doc = doc.tag(aide::openapi::Tag {
                         name: tag.to_owned(),

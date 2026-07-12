@@ -8,6 +8,7 @@ use crate::state::AppState;
 api_routes! {
     state: AppState,
     tag: "info",
+    security: "api-key",
     GET "/" => get_info, "Get server info";
 }
 

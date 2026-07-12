@@ -16,6 +16,7 @@ use crate::{
 api_routes! {
     state: AppState,
     tag: "stream",
+    security: "api-key",
     GET "/" => list_streams, "List streams";
     GET "/info" => get_stream_info, "Get stream info";
     GET "/events" => get_stream_events, "Get stream events";
