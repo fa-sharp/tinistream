@@ -72,19 +72,19 @@ impl deadpool::managed::Manager for ExclusiveClientManager {
         client: &mut fred::clients::Client,
         _: &deadpool::managed::Metrics,
     ) -> deadpool::managed::RecycleResult<Self::Error> {
+        if !client.is_connected() {
+            client.init().await?;
+        }
+
         /// Ping options when recycling a Redis client - quickly ensures a working connection
         const PING_OPTIONS: &fred::prelude::Options = &fred::prelude::Options {
-            timeout: Some(Duration::from_secs(1)),
+            timeout: Some(Duration::from_millis(500)),
             fail_fast: true,
             max_attempts: Some(1),
             max_redirections: None,
             cluster_node: None,
             cluster_hash: None,
         };
-
-        if !client.is_connected() {
-            client.init().await?;
-        }
         let _: () = client.with_options(PING_OPTIONS).ping(None).await?;
 
         Ok(())
