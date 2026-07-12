@@ -49,8 +49,7 @@ async fn add_events(
     if !redis.is_active(&input.key).await? {
         return Err(AppError::bad_request("stream not active"));
     }
-    let entries = input.events.into_iter().map(AddEvent::into_entry);
-    let num_events = redis.write_events(&input.key, entries).await?.len();
+    let num_events = redis.write_events(&input.key, input.events).await?.len();
 
     Ok(Json(AddEventsResponse { num_events }))
 }
@@ -139,12 +138,12 @@ async fn write_event_batch(
     key: &str,
     events: impl IntoIterator<Item = AddEvent>,
 ) -> AppResult<usize> {
-    let entries: Vec<_> = events.into_iter().map(AddEvent::into_entry).collect();
-    if entries.is_empty() {
+    let events: Vec<_> = events.into_iter().collect();
+    if events.is_empty() {
         return Ok(0);
     }
 
-    match writer.write_events(key, entries).await? {
+    match writer.write_events(key, events).await? {
         Some(ids) => Ok(ids.len()),
         None => Err(AppError::bad_request("stream not active")),
     }

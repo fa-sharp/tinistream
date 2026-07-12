@@ -93,16 +93,3 @@ pub struct AddEvent {
     /// Event data
     pub data: Option<String>,
 }
-
-impl AddEvent {
-    /// Convert to Redis entry
-    pub fn into_entry(self) -> Vec<(&'static str, String)> {
-        match self.data {
-            Some(data) => vec![
-                (constants::EVENT_KEY, self.event),
-                (constants::DATA_KEY, data),
-            ],
-            None => vec![(constants::EVENT_KEY, self.event)],
-        }
-    }
-}

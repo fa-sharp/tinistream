@@ -2,7 +2,7 @@ use fred::prelude::*;
 use futures::StreamExt;
 use itertools::Itertools;
 
-use crate::redis::{StreamService, constants, types::RedisStr};
+use crate::redis::{AddEvent, StreamService, constants, types::RedisStr};
 
 /// Redis client from static pool. Used for quick operations like retrieving stream status and
 /// initializing a stream, not long-running / blocking commands.
@@ -70,14 +70,21 @@ impl RedisClient {
     pub async fn write_events(
         &self,
         key: &str,
-        events: impl IntoIterator<Item = Vec<(&str, String)>>,
+        events: impl IntoIterator<Item = AddEvent>,
     ) -> FredResult<Vec<RedisStr>> {
         let stream_key = self.stream.stream_key(key);
 
         let trx = self.client.multi();
-        for event in events {
+        for ev in events {
+            let entry = match ev.data.as_deref() {
+                Some(data) => vec![
+                    (constants::EVENT_KEY, ev.event.as_str()),
+                    (constants::DATA_KEY, data),
+                ],
+                None => vec![(constants::EVENT_KEY, ev.event.as_str())],
+            };
             let _: () = trx
-                .xadd(&stream_key, true, ("MAXLEN", "~", self.max_len), "*", event)
+                .xadd(&stream_key, true, ("MAXLEN", "~", self.max_len), "*", entry)
                 .await?;
         }
         trx.exec(true).await
