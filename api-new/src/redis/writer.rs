@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use fred::prelude::{FredResult, LuaInterface};
 
 use crate::redis::{AddEvent, ExclusiveClient, StreamService, constants, types::RedisStr};
@@ -9,8 +7,8 @@ use crate::redis::{AddEvent, ExclusiveClient, StreamService, constants, types::R
 pub struct RedisWriter {
     client: ExclusiveClient,
     stream: StreamService,
-    max_len: String,
-    script_hash: Arc<str>,
+    max_len: u32,
+    script_hash: &'static str,
 }
 
 impl RedisWriter {
@@ -18,11 +16,11 @@ impl RedisWriter {
         client: ExclusiveClient,
         max_len: u32,
         stream_service: StreamService,
-        script_hash: Arc<str>,
+        script_hash: &'static str,
     ) -> Self {
         Self {
             client,
-            max_len: max_len.to_string(),
+            max_len,
             stream: stream_service,
             script_hash,
         }
@@ -38,10 +36,11 @@ impl RedisWriter {
         let stream_key = self.stream.stream_key(key);
         let meta_key = self.stream.meta_key(key);
 
+        let mut max_len_buffer = itoa::Buffer::new();
         let mut args = vec![
             constants::META_STATUS_FIELD,
             constants::StreamStatus::Active.as_str(),
-            &self.max_len,
+            max_len_buffer.format(self.max_len),
             constants::EVENT_KEY,
             constants::DATA_KEY,
         ];

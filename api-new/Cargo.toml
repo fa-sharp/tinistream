@@ -26,7 +26,6 @@ base64 = "0.22.1"
 bytes-utils = { version = "0.1", features = ["serde"] }
 chacha20poly1305 = { version = "0.11.0", features = ["zeroize"] }
 dotenvy = "0.15.7"
-figment = { version = "0.10.19", features = ["env"] }
 fred = {
   version = "10.1.0",
   default-features = false,
@@ -42,6 +41,7 @@ fred = {
 futures = "0.3.32"
 hex = "0.4.3"
 itertools = "0.15.0"
+itoa = "1.0.18"
 schemars = { version = "1.2.1" }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"

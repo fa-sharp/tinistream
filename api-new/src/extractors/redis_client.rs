@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use aide::OperationIo;
 use axum::extract::FromRequestParts;
 
@@ -63,7 +61,7 @@ impl FromRequestParts<AppState> for WriterClient {
                     client,
                     state.config.max_stream_len,
                     state.streams(),
-                    Arc::clone(&state.ingest_script_hash),
+                    &state.ingest_script_hash,
                 );
                 Ok(Self(writer))
             }
