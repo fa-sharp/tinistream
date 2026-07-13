@@ -11,7 +11,7 @@ use fred::{
 };
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
-/// Keeps track of the currently checked-out exclusive clients
+/// Keeps track of the currently checked-out exclusive clients and connections
 type CurrentClients = Arc<Mutex<Vec<(Client, ConnectHandle)>>>;
 
 /// Manager that hands out clients with exclusive Redis connections for long-running commands
@@ -26,7 +26,6 @@ pub struct ExclusiveClientManager {
 pub struct ExclusiveClient {
     client: Client,
     clients: CurrentClients,
-    #[allow(unused)]
     permit: Option<OwnedSemaphorePermit>,
 }
 impl Deref for ExclusiveClient {
@@ -87,12 +86,19 @@ impl ExclusiveClientManager {
             clients_lock.drain(..).collect()
         };
 
-        futures::future::join_all(clients.into_iter().map(async |(client, handle)| {
-            if let Ok(_) = client.quit().await {
-                let _ = handle.await;
-            }
-        }))
-        .await;
+        futures::future::join_all(clients.into_iter().map(shutdown_client)).await;
+    }
+}
+
+/// Shutdown the client with a grace period for the connection handle
+async fn shutdown_client((client, handle): (Client, ConnectHandle)) {
+    if let Err(e) = client.quit().await {
+        tracing::info!("Failed to quit Redis client {}: {e}", client.id());
+    }
+    let abort_handle = handle.abort_handle();
+    if let Err(_) = tokio::time::timeout(Duration::from_secs(5), handle).await {
+        tracing::warn!("Aborting connection for Redis client {}...", client.id());
+        abort_handle.abort();
     }
 }
 
@@ -103,15 +109,13 @@ impl Drop for ExclusiveClient {
         let permit = self.permit.take();
 
         tokio::spawn(async move {
-            if let Some((client, handle)) = {
+            if let Some(client) = {
                 let mut clients_lock = clients.lock().unwrap();
                 clients_lock
                     .extract_if(.., |(c, _)| c.id() == client.id())
                     .next()
             } {
-                if let Ok(_) = client.quit().await {
-                    let _ = handle.await;
-                }
+                shutdown_client(client).await;
             }
 
             drop(permit);
