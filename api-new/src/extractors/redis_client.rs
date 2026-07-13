@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use aide::OperationIo;
 use axum::extract::FromRequestParts;
 
@@ -57,7 +59,12 @@ impl FromRequestParts<AppState> for WriterClient {
     ) -> Result<Self, Self::Rejection> {
         match state.exclusive_clients.get().await? {
             Some(client) => {
-                let writer = RedisWriter::new(client, state.config.max_stream_len, state.streams());
+                let writer = RedisWriter::new(
+                    client,
+                    state.config.max_stream_len,
+                    state.streams(),
+                    Arc::clone(&state.ingest_script_hash),
+                );
                 Ok(Self(writer))
             }
             None => Err(AppError::too_many_requests()),

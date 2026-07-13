@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use fred::prelude::{FredResult, LuaInterface};
 
 use crate::redis::{AddEvent, ExclusiveClient, StreamService, constants, types::RedisStr};
@@ -8,14 +10,21 @@ pub struct RedisWriter {
     client: ExclusiveClient,
     stream: StreamService,
     max_len: String,
+    script_hash: Arc<str>,
 }
 
 impl RedisWriter {
-    pub fn new(client: ExclusiveClient, max_len: u32, stream_service: StreamService) -> Self {
+    pub fn new(
+        client: ExclusiveClient,
+        max_len: u32,
+        stream_service: StreamService,
+        script_hash: Arc<str>,
+    ) -> Self {
         Self {
             client,
             max_len: max_len.to_string(),
             stream: stream_service,
+            script_hash,
         }
     }
 
@@ -42,8 +51,13 @@ impl RedisWriter {
         }));
 
         self.client
-            .eval(WRITE_EVENTS_SCRIPT, (stream_key, meta_key), args)
+            .evalsha(&*self.script_hash, (stream_key, meta_key), args)
             .await
+    }
+
+    /// Load the event ingest Lua script into Redis and get the script hash
+    pub async fn load_ingest_script(client: &impl LuaInterface) -> FredResult<String> {
+        client.script_load(WRITE_EVENTS_SCRIPT).await
     }
 }
 

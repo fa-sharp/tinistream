@@ -1,9 +1,12 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Context;
 use fred::{prelude::*, socket2::TcpKeepalive};
 
-use crate::{plugins::Plugin, redis::ExclusiveClientManager};
+use crate::{
+    plugins::Plugin,
+    redis::{ExclusiveClientManager, RedisWriter},
+};
 
 pub fn plugin() -> Plugin {
     Plugin::named("Redis")
@@ -33,8 +36,11 @@ pub fn plugin() -> Plugin {
                 config.redis_timeout,
             );
 
+            let ingest_hash = RedisWriter::load_ingest_script(&static_pool).await?;
+
             app.insert(static_pool)?;
             app.insert(exclusive_clients)?;
+            app.insert(Arc::<str>::from(ingest_hash))?;
             Ok(app)
         })
         .on_shutdown(async |app| {

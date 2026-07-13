@@ -20,6 +20,7 @@ pub struct AppStateInner {
     pub encryptor: TokenEncryption,
     pub static_pool: fred::clients::Pool,
     pub exclusive_clients: ExclusiveClientManager,
+    pub ingest_script_hash: Arc<str>,
 }
 
 impl Deref for AppState {
