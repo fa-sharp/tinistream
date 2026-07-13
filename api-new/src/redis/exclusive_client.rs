@@ -6,7 +6,7 @@ use std::{
 
 use fred::{
     clients::Client,
-    interfaces::{ClientLike, FredResult},
+    interfaces::{ClientInterface, ClientLike, FredResult},
     types::ConnectHandle,
 };
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
@@ -90,10 +90,12 @@ impl ExclusiveClientManager {
     }
 }
 
-/// Shutdown the client with a grace period for the connection handle
+/// Shutdown the exclusive client, unblocking any blocking command
+/// and shutting down the connection handle with a grace period
 async fn shutdown_client((client, handle): (Client, ConnectHandle)) {
+    let _ = client.unblock_self(None).await;
     if let Err(e) = client.quit().await {
-        tracing::info!("Failed to quit Redis client {}: {e}", client.id());
+        tracing::warn!("Failed to quit Redis client {}: {e}", client.id());
     }
     let abort_handle = handle.abort_handle();
     if let Err(_) = tokio::time::timeout(Duration::from_secs(5), handle).await {
