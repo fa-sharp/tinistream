@@ -7,7 +7,7 @@ use axum_plugin::{AppState, TypeMap};
 use crate::{
     auth::{ClientToken, TokenEncryption},
     config::AppConfig,
-    redis::{ExclusiveClientPool, StreamService},
+    redis::{ExclusiveClientManager, StreamService},
 };
 
 /// App state stored in the Axum router
@@ -19,7 +19,7 @@ pub struct AppStateInner {
     pub config: Arc<AppConfig>,
     pub encryptor: TokenEncryption,
     pub static_pool: fred::clients::Pool,
-    pub exclusive_pool: ExclusiveClientPool,
+    pub exclusive_clients: ExclusiveClientManager,
 }
 
 impl Deref for AppState {

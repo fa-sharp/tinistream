@@ -1,21 +1,17 @@
 use fred::prelude::{FredResult, LuaInterface};
 
-use crate::redis::{AddEvent, ExclusiveClientManager, StreamService, constants, types::RedisStr};
+use crate::redis::{AddEvent, ExclusiveClient, StreamService, constants, types::RedisStr};
 
 /// A stream writer with an exclusive lock on a Redis connection, for
 /// long-running write operations (e.g. for ingesting events into Redis)
 pub struct RedisWriter {
-    client: deadpool::managed::Object<ExclusiveClientManager>,
+    client: ExclusiveClient,
     stream: StreamService,
     max_len: String,
 }
 
 impl RedisWriter {
-    pub fn new(
-        client: deadpool::managed::Object<ExclusiveClientManager>,
-        max_len: u32,
-        stream_service: StreamService,
-    ) -> Self {
+    pub fn new(client: ExclusiveClient, max_len: u32, stream_service: StreamService) -> Self {
         Self {
             client,
             max_len: max_len.to_string(),

@@ -8,7 +8,7 @@ use futures::Stream;
 use time::{UtcDateTime, format_description::well_known::Rfc3339};
 
 use crate::redis::{
-    ExclusiveClientManager, StreamService, constants,
+    ExclusiveClient, StreamService, constants,
     error::{RedisError, RedisResult},
     types::{RedisEntry, RedisStr, SseEvent, StreamEvent, WsMessage},
     util,
@@ -17,7 +17,7 @@ use crate::redis::{
 /// Stream reader with an exclusive lock on a Redis connection, for
 /// long-running read operations (e.g. for streaming SSE events from Redis to clients)
 pub struct RedisReader {
-    client: deadpool::managed::Object<ExclusiveClientManager>,
+    client: ExclusiveClient,
     stream: StreamService,
     /// Timeout for listening for the next stream event
     client_timeout_ms: u64,
@@ -25,7 +25,7 @@ pub struct RedisReader {
 
 impl RedisReader {
     pub fn new(
-        client: deadpool::managed::Object<ExclusiveClientManager>,
+        client: ExclusiveClient,
         client_timeout_secs: u32,
         stream_service: StreamService,
     ) -> Self {

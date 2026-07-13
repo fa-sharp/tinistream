@@ -6,8 +6,6 @@ use axum::{
 };
 use serde::Serialize;
 
-use crate::redis::ExclusiveClientPoolError;
-
 /// Global result type that can be used for API route handlers
 pub type AppResult<T> = Result<T, AppError>;
 
@@ -22,11 +20,6 @@ pub struct AppError {
 impl From<anyhow::Error> for AppError {
     fn from(error: anyhow::Error) -> Self {
         Self::internal(error)
-    }
-}
-impl From<ExclusiveClientPoolError> for AppError {
-    fn from(error: ExclusiveClientPoolError) -> Self {
-        Self::internal(anyhow::Error::from(error).context("failed to get exclusive Redis client"))
     }
 }
 impl From<fred::error::Error> for AppError {

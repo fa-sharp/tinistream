@@ -3,10 +3,7 @@ use std::time::Duration;
 use anyhow::Context;
 use fred::{prelude::*, socket2::TcpKeepalive};
 
-use crate::{
-    plugins::Plugin,
-    redis::{ExclusiveClientManager, ExclusiveClientPool},
-};
+use crate::{plugins::Plugin, redis::ExclusiveClientManager};
 
 pub fn plugin() -> Plugin {
     Plugin::named("Redis")
@@ -30,20 +27,20 @@ pub fn plugin() -> Plugin {
                 .build_pool(config.redis_pool)?;
             static_pool.init().await.context("connect to Redis")?;
 
-            let exclusive_manager = ExclusiveClientManager::new(static_pool.next().clone_new());
-            let exclusive_pool: ExclusiveClientPool =
-                exclusive_manager.build_dynamic_pool(config.max_clients, timeout)?;
-
-            tokio::spawn(ExclusiveClientManager::cleanup_task(exclusive_pool.clone()));
+            let exclusive_clients = ExclusiveClientManager::new(
+                static_pool.next().clone_new(),
+                config.max_clients,
+                config.redis_timeout,
+            );
 
             app.insert(static_pool)?;
-            app.insert(exclusive_pool)?;
+            app.insert(exclusive_clients)?;
             Ok(app)
         })
         .on_shutdown(async |app| {
-            tracing::info!("Shutting down Redis pools...");
+            tracing::info!("Shutting down Redis connections...");
             let _ = app.state().static_pool.quit().await;
-            app.state().exclusive_pool.manager().shutdown().await;
+            app.state().exclusive_clients.shutdown().await;
 
             Ok(())
         })
