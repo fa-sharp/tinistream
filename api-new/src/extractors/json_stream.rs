@@ -68,7 +68,7 @@ impl OperationInput for JsonStream {
         let request_body = RequestBody {
             description: Some("A JSON lines stream".into()),
             content: [(
-                String::from("application/jsonl"),
+                String::from("application/json"),
                 MediaType {
                     schema: Some(SchemaObject {
                         json_schema: AddEvent::json_schema(&mut ctx.schema),

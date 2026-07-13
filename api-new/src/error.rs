@@ -1,9 +1,11 @@
 use aide::OperationOutput;
 use axum::{
     Json,
+    extract::rejection::{JsonRejection, QueryRejection},
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use schemars::JsonSchema;
 use serde::Serialize;
 
 /// Global result type that can be used for API route handlers
@@ -25,6 +27,16 @@ impl From<anyhow::Error> for AppError {
 impl From<fred::error::Error> for AppError {
     fn from(error: fred::error::Error) -> Self {
         Self::internal(anyhow::Error::from(error).context("Redis client error"))
+    }
+}
+impl From<QueryRejection> for AppError {
+    fn from(err: QueryRejection) -> Self {
+        Self::bad_request(err.to_string())
+    }
+}
+impl From<JsonRejection> for AppError {
+    fn from(err: JsonRejection) -> Self {
+        Self::bad_request(err.to_string())
     }
 }
 
@@ -72,12 +84,12 @@ impl std::fmt::Display for AppError {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, JsonSchema)]
 pub struct ErrorResponse {
     error: ErrorBody,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, JsonSchema)]
 struct ErrorBody {
     message: String,
     status: u16,
@@ -102,4 +114,21 @@ impl IntoResponse for AppError {
 
 impl OperationOutput for AppError {
     type Inner = ErrorResponse;
+
+    fn inferred_responses(
+        ctx: &mut aide::generate::GenContext,
+        operation: &mut aide::openapi::Operation,
+    ) -> Vec<(Option<aide::openapi::StatusCode>, aide::openapi::Response)> {
+        if let Some(response) = Json::<ErrorResponse>::operation_response(ctx, operation) {
+            [400, 401, 404, 429, 500]
+                .into_iter()
+                .map(|code| {
+                    let status_code = Some(aide::openapi::StatusCode::Code(code));
+                    (status_code, response.clone())
+                })
+                .collect()
+        } else {
+            vec![]
+        }
+    }
 }

@@ -24,7 +24,7 @@ pub fn setup_backend_client(port: u16) -> tinistream_client::Client {
         .build()
         .expect("build client");
     let client = tinistream_client::Client::new_with_client(
-        &format!("http://localhost:{port}/api"),
+        &format!("http://localhost:{port}"),
         http_client,
     );
 

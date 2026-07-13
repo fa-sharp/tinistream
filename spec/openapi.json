@@ -1,38 +1,16 @@
 {
-  "openapi": "3.0.0",
+  "openapi": "3.1.0",
   "info": {
-    "title": "tinistream",
-    "version": "0.1.10"
+    "title": "Tinistream API",
+    "version": "0.2.0"
   },
   "paths": {
-    "/api/health": {
-      "get": {
-        "tags": [
-          "Info"
-        ],
-        "summary": "Health check",
-        "operationId": "health",
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/info": {
       "get": {
         "tags": [
-          "Info"
+          "info"
         ],
-        "summary": "Get info",
-        "description": "Get information about the server",
+        "summary": "Get server info",
         "operationId": "get_info",
         "responses": {
           "200": {
@@ -53,22 +31,294 @@
         ]
       }
     },
-    "/api/stream/": {
+    "/api/event/add": {
+      "post": {
+        "tags": [
+          "ingest"
+        ],
+        "summary": "Add events",
+        "operationId": "add_events",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddEventsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddEventsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/event/add/json-stream": {
+      "post": {
+        "tags": [
+          "ingest"
+        ],
+        "summary": "Add events via JSON stream",
+        "operationId": "json_stream",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "key",
+            "description": "Key of the stream",
+            "required": true,
+            "schema": {
+              "description": "Key of the stream",
+              "type": "string"
+            },
+            "style": "form"
+          }
+        ],
+        "requestBody": {
+          "description": "A JSON lines stream",
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "Event to ingest / add to the stream",
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "description": "Event data",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "event": {
+                    "description": "Name/type of the event",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "event"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddEventsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/event/add/ws-stream": {
       "get": {
         "tags": [
-          "Stream"
+          "ingest"
+        ],
+        "summary": "Add events via WebSocket",
+        "operationId": "ws_stream",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "key",
+            "description": "Key of the stream",
+            "required": true,
+            "schema": {
+              "description": "Key of the stream",
+              "type": "string"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "websocket upgrade",
+            "headers": {
+              "connection": {
+                "style": "simple",
+                "schema": {
+                  "const": "upgrade",
+                  "enum": [
+                    "upgrade"
+                  ],
+                  "type": "string",
+                  "example": "upgrade"
+                }
+              },
+              "upgrade": {
+                "style": "simple",
+                "schema": {
+                  "const": "websocket",
+                  "enum": [
+                    "websocket"
+                  ],
+                  "type": "string",
+                  "example": "websocket"
+                }
+              },
+              "sec-websocket-key": {
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "sec-websocket-protocol": {
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/stream": {
+      "get": {
+        "tags": [
+          "stream"
         ],
         "summary": "List streams",
-        "description": "List all active streams",
         "operationId": "list_streams",
         "parameters": [
           {
-            "name": "pattern",
             "in": "query",
+            "name": "pattern",
+            "description": "Key prefix / pattern to search for",
             "schema": {
-              "type": "string",
-              "nullable": true
-            }
+              "description": "Key prefix / pattern to search for",
+              "type": "string"
+            },
+            "style": "form"
           }
         ],
         "responses": {
@@ -86,51 +336,51 @@
             }
           },
           "400": {
-            "description": "Bad request",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "404": {
-            "description": "Not found",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
-          "422": {
-            "description": "Incorrectly formatted",
+          "429": {
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "500": {
-            "description": "Internal server error",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -144,10 +394,9 @@
       },
       "post": {
         "tags": [
-          "Stream"
+          "stream"
         ],
         "summary": "Create stream",
-        "description": "Create a new stream, and get a client URL and token to connect to the stream",
         "operationId": "create_stream",
         "requestBody": {
           "content": {
@@ -171,51 +420,232 @@
             }
           },
           "400": {
-            "description": "Bad request",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "404": {
-            "description": "Not found",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
-          "422": {
-            "description": "Incorrectly formatted",
+          "429": {
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "500": {
-            "description": "Internal server error",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/stream/info": {
+      "get": {
+        "tags": [
+          "stream"
+        ],
+        "summary": "Get stream info",
+        "operationId": "get_stream_info",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "key",
+            "description": "Key of the stream",
+            "required": true,
+            "schema": {
+              "description": "Key of the stream",
+              "type": "string"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Information about the stream",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/stream/events": {
+      "get": {
+        "tags": [
+          "stream"
+        ],
+        "summary": "Get stream events",
+        "operationId": "get_stream_events",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "key",
+            "description": "Key of the stream",
+            "required": true,
+            "schema": {
+              "description": "Key of the stream",
+              "type": "string"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StreamEvent"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -231,10 +661,9 @@
     "/api/stream/token": {
       "post": {
         "tags": [
-          "Stream"
+          "stream"
         ],
-        "summary": "Create stream token",
-        "description": "Create a new client token to connect to a stream",
+        "summary": "Create client token",
         "operationId": "create_token",
         "requestBody": {
           "content": {
@@ -258,228 +687,51 @@
             }
           },
           "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Incorrectly formatted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "ApiKey": []
-          }
-        ]
-      }
-    },
-    "/api/stream/info": {
-      "get": {
-        "tags": [
-          "Stream"
-        ],
-        "summary": "Get stream info",
-        "description": "Get info on an active stream",
-        "operationId": "get_stream_info",
-        "parameters": [
-          {
-            "name": "key",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StreamInfo"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Incorrectly formatted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "ApiKey": []
-          }
-        ]
-      }
-    },
-    "/api/stream/events": {
-      "get": {
-        "tags": [
-          "Stream"
-        ],
-        "summary": "Get stream events",
-        "description": "Get all events so far in a stream",
-        "operationId": "get_stream_events",
-        "parameters": [
-          {
-            "name": "key",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/StreamEvent"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "404": {
-            "description": "Not found",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
-          "422": {
-            "description": "Incorrectly formatted",
+          "429": {
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "500": {
-            "description": "Internal server error",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -495,7 +747,7 @@
     "/api/stream/cancel": {
       "post": {
         "tags": [
-          "Stream"
+          "stream"
         ],
         "summary": "Cancel stream",
         "operationId": "cancel_stream",
@@ -521,51 +773,51 @@
             }
           },
           "400": {
-            "description": "Bad request",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "404": {
-            "description": "Not found",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
-          "422": {
-            "description": "Incorrectly formatted",
+          "429": {
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "500": {
-            "description": "Internal server error",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -581,7 +833,7 @@
     "/api/stream/end": {
       "post": {
         "tags": [
-          "Stream"
+          "stream"
         ],
         "summary": "End stream",
         "operationId": "end_stream",
@@ -607,51 +859,51 @@
             }
           },
           "400": {
-            "description": "Bad request",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "404": {
-            "description": "Not found",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
-          "422": {
-            "description": "Incorrectly formatted",
+          "429": {
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "500": {
-            "description": "Internal server error",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -664,362 +916,86 @@
         ]
       }
     },
-    "/api/event/add": {
-      "post": {
-        "tags": [
-          "Events"
-        ],
-        "summary": "Add events",
-        "description": "Add events to a stream",
-        "operationId": "add_events",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AddEventsRequest"
-              }
-            }
-          },
-          "required": true
-        },
+    "/api/health": {
+      "get": {
+        "summary": "Health route",
+        "operationId": "health",
         "responses": {
           "200": {
-            "description": "",
+            "description": "plain text",
             "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AddEventsResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Incorrectly formatted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
+              "text/plain; charset=utf-8": {}
             }
           }
-        },
-        "security": [
-          {
-            "ApiKey": []
-          }
-        ]
-      }
-    },
-    "/api/event/add/json-stream": {
-      "post": {
-        "tags": [
-          "Events"
-        ],
-        "summary": "Add events JSON stream",
-        "description": "Add events to a stream via a JSON stream. Events are sent as newline-delimited JSON objects.",
-        "operationId": "add_events_json_stream",
-        "parameters": [
-          {
-            "name": "key",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "JSON Lines (stream of JSON strings separated by newlines)",
-          "content": {
-            "application/octet-stream": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AddEventsStreamResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Incorrectly formatted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "ApiKey": []
-          }
-        ]
+        }
       }
     }
   },
   "components": {
+    "securitySchemes": {
+      "ApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "Authentication via API key"
+      }
+    },
     "schemas": {
-      "InfoResponse": {
+      "AddEvent": {
+        "description": "Event to ingest / add to the stream",
         "type": "object",
-        "required": [
-          "redis",
-          "url",
-          "version"
-        ],
         "properties": {
-          "url": {
-            "type": "string"
-          },
-          "version": {
-            "type": "string"
-          },
-          "redis": {
-            "$ref": "#/components/schemas/RedisStats"
-          }
-        }
-      },
-      "RedisStats": {
-        "type": "object",
-        "required": [
-          "static",
-          "streaming",
-          "streaming_available",
-          "streaming_in_use",
-          "streaming_max"
-        ],
-        "properties": {
-          "static": {
-            "description": "Number of static connections",
-            "type": "integer",
-            "format": "uint",
-            "minimum": 0.0
-          },
-          "streaming": {
-            "description": "Number of streaming connections",
-            "type": "integer",
-            "format": "uint",
-            "minimum": 0.0
-          },
-          "streaming_in_use": {
-            "description": "Number of in-use streaming connections",
-            "type": "integer",
-            "format": "uint",
-            "minimum": 0.0
-          },
-          "streaming_available": {
-            "description": "Number of available streaming connections",
-            "type": "integer",
-            "format": "uint",
-            "minimum": 0.0
-          },
-          "streaming_max": {
-            "description": "Maximum number of streaming connections",
-            "type": "integer",
-            "format": "uint",
-            "minimum": 0.0
-          }
-        }
-      },
-      "StreamInfo": {
-        "description": "Information about the stream",
-        "type": "object",
-        "required": [
-          "key",
-          "length",
-          "ttl"
-        ],
-        "properties": {
-          "key": {
-            "description": "Key of the stream in Redis",
-            "type": "string"
-          },
-          "length": {
-            "description": "Number of events in the stream",
-            "type": "integer",
-            "format": "uint64",
-            "minimum": 0.0
-          },
-          "ttl": {
-            "description": "Expiration of the stream",
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      },
-      "ErrorMessage": {
-        "type": "object",
-        "required": [
-          "code",
-          "message"
-        ],
-        "properties": {
-          "message": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          }
-        }
-      },
-      "StreamAccessResponse": {
-        "type": "object",
-        "required": [
-          "sse_url",
-          "token",
-          "ws_url"
-        ],
-        "properties": {
-          "sse_url": {
-            "description": "URL for the client to connect to the stream via SSE",
-            "type": "string"
-          },
-          "ws_url": {
-            "description": "URL for the client to connect to the stream via WebSocket",
-            "type": "string"
-          },
-          "token": {
-            "description": "Client token to access the stream. Can be used as a Bearer token in the Authorization header (recommended) or as the `token` query parameter.",
-            "type": "string"
-          }
-        }
-      },
-      "StreamRequest": {
-        "type": "object",
-        "required": [
-          "key"
-        ],
-        "properties": {
-          "key": {
-            "type": "string"
-          }
-        }
-      },
-      "StreamEvent": {
-        "type": "object",
-        "required": [
-          "event",
-          "id",
-          "time"
-        ],
-        "properties": {
-          "id": {
-            "description": "ID of the event",
-            "type": "string"
-          },
-          "time": {
-            "description": "Time of the event (ISO 8601 format)",
-            "type": "string"
+          "data": {
+            "description": "Event data",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "event": {
             "description": "Name/type of the event",
             "type": "string"
-          },
-          "data": {
-            "description": "Event data",
-            "type": "string",
-            "nullable": true
           }
-        }
+        },
+        "required": [
+          "event"
+        ]
+      },
+      "AddEventsRequest": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "description": "Events to add to the stream",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddEvent"
+            }
+          },
+          "key": {
+            "description": "Key of the stream to write to",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "events"
+        ]
+      },
+      "AddEventsResponse": {
+        "type": "object",
+        "properties": {
+          "num_events": {
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "num_events"
+        ]
       },
       "EndStreamResponse": {
         "type": "object",
-        "required": [
-          "status"
-        ],
         "properties": {
           "status": {
             "description": "Status of the stream",
@@ -1029,7 +1005,218 @@
               }
             ]
           }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "ErrorBody": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "format": "uint16",
+            "maximum": 65535,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "message",
+          "status"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "InfoResponse": {
+        "type": "object",
+        "properties": {
+          "redis": {
+            "$ref": "#/components/schemas/RedisStats"
+          },
+          "url": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "version",
+          "redis"
+        ]
+      },
+      "RedisStats": {
+        "type": "object",
+        "properties": {
+          "static": {
+            "description": "Number of static connections",
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0
+          },
+          "streaming_available": {
+            "description": "Number of available streaming connections",
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0
+          },
+          "streaming_in_use": {
+            "description": "Number of in-use streaming connections",
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0
+          },
+          "streaming_max": {
+            "description": "Maximum number of streaming connections",
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "static",
+          "streaming_in_use",
+          "streaming_available",
+          "streaming_max"
+        ]
+      },
+      "StreamAccessResponse": {
+        "type": "object",
+        "properties": {
+          "sse_url": {
+            "description": "URL for the client to connect to the stream via SSE",
+            "type": "string"
+          },
+          "token": {
+            "description": "Client token to access the stream. Can be used as a Bearer token\nin the Authorization header (recommended) or as the `token` query parameter.",
+            "type": "string"
+          },
+          "ws_url": {
+            "description": "URL for the client to connect to the stream via WebSocket",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sse_url",
+          "ws_url",
+          "token"
+        ]
+      },
+      "StreamEvent": {
+        "description": "Formatted stream event",
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Event data",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "event": {
+            "description": "Name/type of the event",
+            "type": "string"
+          },
+          "id": {
+            "description": "ID of the event",
+            "type": "string"
+          },
+          "time": {
+            "description": "Time of the event (ISO 8601 format)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "time",
+          "event"
+        ]
+      },
+      "StreamInfo": {
+        "description": "Information about the stream",
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key of the stream in Redis",
+            "type": "string"
+          },
+          "length": {
+            "description": "Number of events in the stream",
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "ttl": {
+            "description": "Expiration of the stream",
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "key",
+          "length",
+          "ttl"
+        ]
+      },
+      "StreamKeyQuery": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key of the stream",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "StreamKeyQuery2": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key of the stream",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "StreamPatternQuery": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "description": "Key prefix / pattern to search for",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         }
+      },
+      "StreamRequest": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key"
+        ]
       },
       "StreamStatus": {
         "type": "string",
@@ -1038,89 +1225,6 @@
           "cancelled",
           "ended"
         ]
-      },
-      "AddEventsResponse": {
-        "type": "object",
-        "required": [
-          "ids"
-        ],
-        "properties": {
-          "ids": {
-            "description": "IDs of the added events",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "AddEventsRequest": {
-        "type": "object",
-        "required": [
-          "events",
-          "key"
-        ],
-        "properties": {
-          "key": {
-            "description": "Key of the stream to write to",
-            "type": "string"
-          },
-          "events": {
-            "description": "Events to add to the stream",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AddEvent"
-            }
-          }
-        }
-      },
-      "AddEvent": {
-        "type": "object",
-        "required": [
-          "event"
-        ],
-        "properties": {
-          "event": {
-            "description": "Name/type of the event",
-            "type": "string"
-          },
-          "data": {
-            "description": "Event data",
-            "type": "string",
-            "nullable": true
-          }
-        }
-      },
-      "AddEventsStreamResponse": {
-        "type": "object",
-        "required": [
-          "errors",
-          "ids"
-        ],
-        "properties": {
-          "ids": {
-            "description": "IDs of the added events",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "errors": {
-            "description": "Errors that occurred while adding events",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      }
-    },
-    "securitySchemes": {
-      "ApiKey": {
-        "description": "Provide backend API key.",
-        "type": "apiKey",
-        "name": "X-API-KEY",
-        "in": "header"
       }
     }
   }

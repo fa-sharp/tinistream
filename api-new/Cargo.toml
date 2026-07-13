@@ -1,6 +1,6 @@
 [package]
 name = "tinistream-api"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Backend for tinistream, a lightweight streaming broker"
 
@@ -11,7 +11,7 @@ aide = {
 }
 anyhow = "1.0.103"
 async-stream = "0.3.6"
-axum = { version = "0.8.9", features = ["json", "query", "ws"] }
+axum = { version = "0.8.9", features = ["json", "macros", "query", "ws"] }
 axum-aide-macros = {
   git = "https://git.fasharp.io/fa-sharp/axum-aide-macros",
   rev = "5b00e645df",

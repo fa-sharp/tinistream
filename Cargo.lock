@@ -220,6 +220,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "31b698c5f9a010f6573133b09e0de5408834d0c82f8d7475a89fc1867a71cd90"
 dependencies = [
  "axum-core",
+ "axum-macros",
  "base64",
  "bytes",
  "form_urlencoded",
@@ -289,6 +290,17 @@ dependencies = [
  "pin-project-lite",
  "tower",
  "tower-service",
+]
+
+[[package]]
+name = "axum-macros"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7aa268c23bfbbd2c4363b9cd302a4f504fb2a9dfe7e3451d66f35dd392e20aca"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -2262,9 +2274,9 @@ dependencies = [
 
 [[package]]
 name = "progenitor-client"
-version = "0.12.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffab7b358944dba033a7b324e7558e66e6bcb1fb4705cf57f26fd5092bcae630"
+checksum = "4e8a874cf25a33cac7a01b9c1de87bcfbc8aea93f3156d09dcc3bee516a78926"
 dependencies = [
  "bytes",
  "futures-core",
@@ -3372,7 +3384,7 @@ dependencies = [
 
 [[package]]
 name = "tinistream-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aide",
  "anyhow",
@@ -3413,7 +3425,7 @@ dependencies = [
 
 [[package]]
 name = "tinistream-client"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "bytes",
  "futures-core",

@@ -3,7 +3,7 @@
 Before generating clients, make sure to update the OpenAPI spec to ensure it is in sync with any changes made to the server. While the dev server is running, run the following command to update the spec:
 
 ```bash
-curl -o spec/openapi.json http://localhost:8000/openapi.json
+curl -o spec/openapi.json http://localhost:8000/api/docs/openapi.json
 ```
 
 ## Python
@@ -29,9 +29,9 @@ openapi-python-client generate --path spec/openapi.json --output-path clients/py
 Run the following commands in the project root:
 
 ```bash
-# If needed, install cargo-progenitor
-cargo install cargo-progenitor
+# Install cargo-progenitor (using fork until OpenAPI v3.1 is supported: https://github.com/oxidecomputer/progenitor/issues/1268)
+cargo install cargo-progenitor --git https://github.com/WalletConnect/progenitor --rev 604aacb0df
 
 # Generate the client
-cargo progenitor -i spec/openapi.json -o clients/rust/ -n tinistream-client --interface builder --tags separate --license-name MIT --version 0.1.0
+cargo progenitor -i spec/openapi.json -o clients/rust/ -n tinistream-client --interface builder --tags separate --license-name MIT --version <version>
 ```

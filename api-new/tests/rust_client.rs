@@ -1,5 +1,5 @@
 use tinistream_client::{
-    ClientEventsExt, ClientStreamExt,
+    ClientIngestExt, ClientStreamExt,
     types::{AddEvent, AddEventsRequest, StreamRequest},
 };
 
@@ -8,7 +8,7 @@ use crate::common::{setup_backend_client, setup_http_server};
 mod common;
 
 #[tokio::test]
-async fn server() -> anyhow::Result<()> {
+async fn basic() -> anyhow::Result<()> {
     let (port, _server, shutdown) = setup_http_server().await?;
     let client = setup_backend_client(port);
     let key = rand::random::<u16>().to_string();
@@ -46,7 +46,7 @@ async fn server() -> anyhow::Result<()> {
         .await
         .unwrap();
     assert!(res.status().is_success());
-    assert_eq!(res.ids.len(), 5);
+    assert_eq!(res.num_events, 5);
 
     // End stream
     let res = client

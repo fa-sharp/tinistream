@@ -1,14 +1,11 @@
-use axum::{
-    Json,
-    extract::{Query, State},
-};
+use axum::{Json, extract::State};
 use axum_aide_macros::api_routes;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{AppError, AppResult},
-    extractors::{ReaderClient, StaticClient},
+    extractors::{JsonBody, Query, ReaderClient, StaticClient},
     redis::{StreamEvent, StreamStatus},
     state::AppState,
 };
@@ -16,7 +13,7 @@ use crate::{
 api_routes! {
     state: AppState,
     tag: "stream",
-    security: "api-key",
+    security: "ApiKey",
     GET "/" => list_streams, "List streams";
     GET "/info" => get_stream_info, "Get stream info";
     GET "/events" => get_stream_events, "Get stream events";
@@ -80,7 +77,7 @@ async fn get_stream_events(
 async fn create_stream(
     StaticClient(redis): StaticClient,
     State(state): State<AppState>,
-    Json(input): Json<StreamRequest>,
+    JsonBody(input): JsonBody<StreamRequest>,
 ) -> AppResult<Json<StreamAccessResponse>> {
     if redis.is_active(&input.key).await? {
         return Err(AppError::bad_request("stream at this key already exists"));
@@ -105,7 +102,7 @@ async fn create_stream(
 async fn create_token(
     StaticClient(redis): StaticClient,
     State(state): State<AppState>,
-    Json(input): Json<StreamRequest>,
+    JsonBody(input): JsonBody<StreamRequest>,
 ) -> AppResult<Json<StreamAccessResponse>> {
     if !redis.is_active(&input.key).await? {
         return Err(AppError::not_found("active stream not found"));
@@ -125,7 +122,7 @@ async fn create_token(
 /// # Cancel stream
 async fn cancel_stream(
     StaticClient(redis): StaticClient,
-    Json(input): Json<StreamRequest>,
+    JsonBody(input): JsonBody<StreamRequest>,
 ) -> AppResult<Json<EndStreamResponse>> {
     if !redis.is_active(&input.key).await? {
         return Err(AppError::not_found("active stream not found"));
@@ -140,7 +137,7 @@ async fn cancel_stream(
 /// # End stream
 async fn end_stream(
     StaticClient(redis): StaticClient,
-    Json(input): Json<StreamRequest>,
+    JsonBody(input): JsonBody<StreamRequest>,
 ) -> AppResult<Json<EndStreamResponse>> {
     if !redis.is_active(&input.key).await? {
         return Err(AppError::not_found("active stream not found"));

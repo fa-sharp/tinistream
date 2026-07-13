@@ -1,7 +1,4 @@
-use axum::{
-    Json,
-    extract::{Query, WebSocketUpgrade},
-};
+use axum::{Json, extract::WebSocketUpgrade};
 use axum_aide_macros::api_routes;
 use futures::{SinkExt, Stream, StreamExt, TryStreamExt, stream::TryReadyChunksError};
 use schemars::JsonSchema;
@@ -9,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{AppError, AppResult},
-    extractors::{JsonStream, StaticClient, WriterClient},
+    extractors::{JsonBody, JsonStream, Query, StaticClient, WriterClient},
     redis::{AddEvent, RedisWriter},
     state::AppState,
 };
@@ -17,7 +14,7 @@ use crate::{
 api_routes! {
     state: AppState,
     tag: "ingest",
-    security: "api-key",
+    security: "ApiKey",
     POST "/add" => add_events, "Add events";
     POST "/add/json-stream" => json_stream, "Add events via JSON stream";
     GET "/add/ws-stream" => ws_stream, "Add events via WebSocket";
@@ -44,7 +41,7 @@ struct AddEventsResponse {
 
 async fn add_events(
     StaticClient(redis): StaticClient,
-    Json(input): Json<AddEventsRequest>,
+    JsonBody(input): JsonBody<AddEventsRequest>,
 ) -> AppResult<Json<AddEventsResponse>> {
     if !redis.is_active(&input.key).await? {
         return Err(AppError::bad_request("stream not active"));
