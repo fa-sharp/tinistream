@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use axum::response::sse;
 use fred::types::FromValue;
 use schemars::JsonSchema;
@@ -17,30 +15,52 @@ pub type RedisStr = fred::bytes_utils::Str;
 /// Represents a Redis stream entry retrieved via the fred client
 pub struct RedisEntry {
     pub id: RedisStr,
-    pub fields: HashMap<RedisStr, RedisStr>,
+    fields: Vec<(RedisStr, RedisStr)>,
 }
 impl FromValue for RedisEntry {
     fn from_value(value: fred::prelude::Value) -> Result<Self, fred::prelude::Error> {
-        let (id, fields): (RedisStr, HashMap<RedisStr, RedisStr>) = value.convert()?;
+        let (id, fields) = value.convert()?;
         Ok(Self { id, fields })
     }
 }
 
 impl RedisEntry {
-    /// Get the entry ID as a string slice
-    pub fn id_str(&self) -> &str {
-        &*self.id
-    }
-
     /// Check if this entry is an ending event (i.e. event field is `end` or `cancel`)
     pub fn is_end_event(&self) -> bool {
-        self.fields
-            .get(constants::EVENT_KEY)
-            .is_some_and(|t| *t == constants::END_ENTRY.1 || *t == constants::CANCEL_ENTRY.1)
+        self.fields.iter().any(|(key, val)| {
+            (&**key, &**val) == constants::END_ENTRY || (&**key, &**val) == constants::CANCEL_ENTRY
+        })
     }
 
     /// Convert this entry into a SSE event
     pub fn into_sse_event(self) -> SseEvent {
+        let (id, event, data) = self.into_parts();
+
+        SseEvent::default()
+            .id(&*id)
+            .event(&*event)
+            .data(data.as_deref().unwrap_or(" "))
+    }
+
+    /// Convert this entry into a JSON WebSocket message
+    pub fn into_ws_message(self) -> WsMessage {
+        let text = serde_json::to_string(&self.into_json()).unwrap_or_default();
+        WsMessage::text(text)
+    }
+
+    /// Convert this entry into JSON (adds the entry ID as the `id` field)
+    pub fn into_json(self) -> serde_json::Value {
+        let (id, event, data) = self.into_parts();
+
+        serde_json::json!({
+            "id": id,
+            constants::EVENT_KEY: event,
+            constants::DATA_KEY: data
+        })
+    }
+
+    /// Returns the id, event field, and data field
+    pub fn into_parts(self) -> (RedisStr, RedisStr, Option<RedisStr>) {
         let (mut event, mut data) = (None, None);
         for (key, value) in self.fields {
             match &*key {
@@ -50,24 +70,7 @@ impl RedisEntry {
             }
         }
 
-        SseEvent::default()
-            .id(&*self.id)
-            .event(event.as_deref().unwrap_or_else(|| "unknown"))
-            .data(data.as_deref().unwrap_or(" "))
-    }
-
-    /// Convert this entry into a JSON WebSocket message
-    pub fn into_ws_message(self) -> WsMessage {
-        let hash = self.into_hashmap();
-        let text = serde_json::to_string(&hash).unwrap_or_default();
-        WsMessage::text(text)
-    }
-
-    /// Convert this entry into a hashmap (adds the entry `id` as a field)
-    pub fn into_hashmap(self) -> HashMap<RedisStr, RedisStr> {
-        let Self { id, mut fields } = self;
-        fields.insert("id".into(), id);
-        fields
+        (self.id, event.unwrap_or_else(|| "unknown".into()), data)
     }
 }
 

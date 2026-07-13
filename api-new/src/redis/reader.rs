@@ -75,20 +75,15 @@ impl RedisReader {
         let (prev_entries, _, _) = self.get_prev_events(key, None).await?;
         let events = prev_entries
             .into_iter()
-            .filter_map(|RedisEntry { id, mut fields }| {
+            .filter_map(|entry| {
+                let (id, event, data) = entry.into_parts();
                 let unix_millis: i64 = id.split('-').next().unwrap_or_default().parse().ok()?;
                 let date_time = UtcDateTime::from_unix_timestamp(unix_millis / 1000).ok()?;
                 let event = StreamEvent {
                     id: (*id).to_owned(),
                     time: date_time.format(&Rfc3339).ok()?,
-                    event: fields
-                        .remove(constants::EVENT_KEY)
-                        .as_deref()
-                        .map(str::to_owned)?,
-                    data: fields
-                        .remove(constants::DATA_KEY)
-                        .as_deref()
-                        .map(str::to_owned),
+                    event: (*event).to_owned(),
+                    data: data.as_deref().map(str::to_owned),
                 };
                 Some(event)
             })
