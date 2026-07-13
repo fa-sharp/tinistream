@@ -2,7 +2,10 @@ use std::{convert::Infallible, time::Duration};
 
 use axum::{
     extract::{WebSocketUpgrade, ws::Message as WsMessage},
-    response::{Sse, sse::Event as SseEvent},
+    response::{
+        Sse,
+        sse::{Event as SseEvent, KeepAlive},
+    },
     routing::get,
 };
 use futures::{Stream, StreamExt};
@@ -27,11 +30,12 @@ async fn client_sse(
     let (events, last_id, is_end) = reader.prev_sse_events(&key, start_id.as_deref()).await?;
     let prev_events_stream = futures::stream::iter(events);
 
+    let keep_alive = KeepAlive::default().interval(Duration::from_secs(10));
     if is_end {
-        Ok(Sse::new(prev_events_stream.map(Ok).boxed()))
+        Ok(Sse::new(prev_events_stream.map(Ok).boxed()).keep_alive(keep_alive))
     } else {
         let stream = prev_events_stream.chain(reader.stream_sse_events(&key, &last_id));
-        Ok(Sse::new(stream.map(Ok).boxed()))
+        Ok(Sse::new(stream.map(Ok).boxed()).keep_alive(keep_alive))
     }
 }
 
