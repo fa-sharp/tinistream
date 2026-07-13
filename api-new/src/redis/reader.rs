@@ -14,6 +14,9 @@ use crate::redis::{
     util,
 };
 
+/// Maximum time to block on Redis before re-checking stream state.
+const XREAD_BLOCK_MS: u64 = 30_000;
+
 /// Stream reader with an exclusive lock on a Redis connection, for
 /// long-running read operations (e.g. for streaming SSE events from Redis to clients)
 pub struct RedisReader {
@@ -131,11 +134,12 @@ impl RedisReader {
         last_event_id: &str,
     ) -> impl Stream<Item = SseEvent> + use<> {
         let stream_key = self.stream.stream_key(key);
+        let meta_key = self.stream.meta_key(key);
         let mut last_event_id = RedisStr::from(last_event_id);
 
         async_stream::stream! {
-            while let Some(res) = self.next_event(&stream_key, &last_event_id).await {
-                match res {
+            loop {
+                match self.next_event(&stream_key, &meta_key, &last_event_id).await {
                     Ok(event) if event.is_end_event() => {
                         yield event.into_sse_event();
                         break;
@@ -160,11 +164,12 @@ impl RedisReader {
         last_event_id: &str,
     ) -> impl Stream<Item = WsMessage> + use<> {
         let stream_key = self.stream.stream_key(key);
+        let meta_key = self.stream.meta_key(key);
         let mut last_event_id = RedisStr::from(last_event_id);
 
         async_stream::stream! {
-            while let Some(res) = self.next_event(&stream_key, &last_event_id).await {
-                match res {
+            loop {
+                match self.next_event(&stream_key, &meta_key, &last_event_id).await {
                     Ok(event) if event.is_end_event() => {
                         yield event.into_ws_message();
                         yield WsMessage::Close(None);
@@ -192,17 +197,29 @@ impl RedisReader {
     async fn next_event(
         &self,
         stream_key: &str,
+        meta_key: &str,
         start_event_id: &str,
-    ) -> Option<RedisResult<RedisEntry>> {
-        self.xread(
-            stream_key,
-            start_event_id,
-            Some(1),
-            Some(self.client_timeout_ms),
-        )
-        .await
-        .map(|mut entries| entries.pop()) // only reading 1 event in the command
-        .transpose()
+    ) -> RedisResult<RedisEntry> {
+        let block_timeout_ms = self.client_timeout_ms.min(XREAD_BLOCK_MS);
+
+        loop {
+            match self
+                .xread(stream_key, start_event_id, Some(1), Some(block_timeout_ms))
+                .await
+            {
+                Ok(Some(mut entries)) => {
+                    if let Some(entry) = entries.pop() {
+                        return Ok(entry); // should only be 1 entry
+                    }
+                }
+                Ok(None) => match self.is_stream_active(meta_key).await {
+                    Ok(true) => continue,
+                    Ok(false) => return Err(RedisError::StreamNotFound),
+                    Err(err) => return Err(err),
+                },
+                Err(err) => return Err(err),
+            }
+        }
     }
 
     /// Friendlier typed blocking `XREAD` command
@@ -212,18 +229,30 @@ impl RedisReader {
         start_event_id: &str,
         count: Option<u64>,
         block: Option<u64>,
-    ) -> RedisResult<Vec<RedisEntry>> {
-        let (_key, events) = self
+    ) -> RedisResult<Option<Vec<RedisEntry>>> {
+        let command_timeout = block
+            .map(|timeout| timeout + 5_000) // 5 second grace period for command timeout
+            .unwrap_or(self.client_timeout_ms);
+        let entries = self
             .client
             .with_options(&fred::prelude::Options {
-                timeout: Some(Duration::from_millis(self.client_timeout_ms)),
+                timeout: Some(Duration::from_millis(command_timeout)),
                 ..Default::default()
             })
             .xread::<Option<Vec<(RedisStr, _)>>, _, _>(count, block, stream_key, start_event_id)
             .await?
             .and_then(|mut streams| streams.pop()) // only reading 1 stream in the command
-            .ok_or(RedisError::StreamNotFound)?;
+            .map(|(_key, events)| events);
 
-        Ok(events)
+        Ok(entries)
+    }
+
+    async fn is_stream_active(&self, meta_key: &str) -> RedisResult<bool> {
+        let status: Option<RedisStr> = self
+            .client
+            .hget(meta_key, constants::META_STATUS_FIELD)
+            .await?;
+
+        Ok(status.is_some_and(|s| *s == constants::StreamStatus::Active))
     }
 }
