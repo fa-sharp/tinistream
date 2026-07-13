@@ -131,7 +131,7 @@ impl RedisReader {
         last_event_id: &str,
     ) -> impl Stream<Item = SseEvent> + use<> {
         let stream_key = self.stream.stream_key(key);
-        let mut last_event_id = last_event_id.to_owned();
+        let mut last_event_id = RedisStr::from(last_event_id);
 
         async_stream::stream! {
             while let Some(res) = self.next_event(&stream_key, &last_event_id).await {
@@ -141,7 +141,7 @@ impl RedisReader {
                         break;
                     }
                     Ok(event) => {
-                        last_event_id = event.id_str().to_owned();
+                        last_event_id = event.id.clone();
                         yield event.into_sse_event();
                     }
                     Err(err) => {
@@ -160,7 +160,7 @@ impl RedisReader {
         last_event_id: &str,
     ) -> impl Stream<Item = WsMessage> + use<> {
         let stream_key = self.stream.stream_key(key);
-        let mut last_event_id = last_event_id.to_owned();
+        let mut last_event_id = RedisStr::from(last_event_id);
 
         async_stream::stream! {
             while let Some(res) = self.next_event(&stream_key, &last_event_id).await {
@@ -171,7 +171,7 @@ impl RedisReader {
                         break;
                     }
                     Ok(event) => {
-                        last_event_id = event.id_str().to_owned();
+                        last_event_id = event.id.clone();
                         yield event.into_ws_message();
                     }
                     Err(err) => {
