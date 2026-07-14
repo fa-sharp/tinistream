@@ -8,7 +8,7 @@ use axum::{
     },
     routing::get,
 };
-use futures::{Stream, StreamExt};
+use futures::{SinkExt, Stream, StreamExt};
 
 use crate::{
     error::AppResult,
@@ -46,26 +46,42 @@ async fn client_ws(
     ws: WebSocketUpgrade,
 ) -> AppResult<axum::response::Response> {
     let (prev_events, last_id, is_end) = reader.prev_json_events(&key, start_id.as_deref()).await?;
-    let prev_events_stream = async_stream::stream! {
-        // Slight delay needed here for initial WebSocket connection/handshake
-        tokio::time::sleep(Duration::from_millis(200)).await;
-        yield WsMessage::text(prev_events);
-        if is_end {
-            yield WsMessage::Close(None);
-        }
-    };
 
     if is_end {
-        Ok(ws.on_upgrade(async |socket| {
-            if let Err(err) = prev_events_stream.map(Ok).forward(socket).await {
-                tracing::warn!("WebSocket client stream error: {err}");
-            }
+        Ok(ws.on_upgrade(async |mut socket| {
+            let _ = socket.send(WsMessage::text(prev_events)).await;
+            let _ = socket.send(WsMessage::Close(None)).await;
         }))
     } else {
-        let stream = prev_events_stream.chain(reader.stream_ws_events(&key, &last_id));
-        Ok(ws.on_upgrade(async |socket| {
-            if let Err(err) = stream.map(Ok).forward(socket).await {
-                tracing::warn!("WebSocket client stream error: {err}");
+        let stream = reader.stream_ws_events(&key, &last_id);
+        Ok(ws.on_upgrade(async |mut socket| {
+            let _ = socket.send(WsMessage::text(prev_events)).await;
+
+            let (mut ws_sender, mut ws_reader) = socket.split();
+            let mut stream = std::pin::pin!(stream);
+            loop {
+                tokio::select! {
+                    ws_msg = ws_reader.next() => {
+                        match ws_msg {
+                            Some(Ok(WsMessage::Close(_))) | None => break,
+                            Some(_) => continue,
+                        }
+                    }
+                    stream_msg = stream.next() => {
+                        match stream_msg {
+                            Some(WsMessage::Close(_)) | None => {
+                                let _ = ws_sender.send(WsMessage::Close(None)).await;
+                                break;
+                            }
+                            Some(msg) => {
+                                if let Err(err) = ws_sender.send(msg).await {
+                                    tracing::warn!("WebSocket client stream error: {err}");
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }))
     }
