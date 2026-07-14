@@ -45,14 +45,11 @@ jobs:
       - name: Run cargo check
         run: cargo check --workspace
 
-      - name: Run cargo build for API
-        run: cargo build -p ${{ env.API_PKG }}
+      - name: Run cargo build
+        run: cargo build --workspace
 
-      - name: Run cargo build for Rust client
-        run: cargo build -p ${{ env.CLIENT_PKG }}
-
-      - name: Run cargo clippy for API
-        run: cargo clippy -p ${{ env.API_PKG }}
+      - name: Run cargo clippy
+        run: cargo clippy --workspace
 
       - name: Build tests for API
         run: cargo build --tests -p ${{ env.API_PKG }}
@@ -65,7 +62,7 @@ jobs:
 
       - name: Run API server
         run: |
-          cargo run -p tinistream & SERVER_PID=$!
+          cargo run -p ${{ env.API_PKG }} & SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
         env:
           STREAMER_API_KEY: ${{ secrets.STREAMER_API_KEY }}
