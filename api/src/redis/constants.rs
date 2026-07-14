@@ -13,6 +13,7 @@ pub const CANCEL_ENTRY: (&str, &str) = (EVENT_KEY, "cancel");
 pub const END_ENTRY: (&str, &str) = (EVENT_KEY, "end");
 pub const ERROR_ENTRY: (&str, &str) = (EVENT_KEY, "error");
 
+pub const STREAM_PREFIX: &str = "stream:";
 pub const META_PREFIX: &str = "meta:";
 pub const META_STATUS_FIELD: &str = "status";
 pub const META_ACTIVE: (&str, &str) = (META_STATUS_FIELD, StreamStatus::Active.as_str());

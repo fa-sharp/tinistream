@@ -14,7 +14,7 @@ impl StreamService {
 
     /// Get the full stream key/prefix
     pub fn stream_key(&self, key: &str) -> String {
-        [&self.config.key_prefix, key].concat()
+        [&self.config.key_prefix, constants::STREAM_PREFIX, key].concat()
     }
 
     /// Get the full key for the metadata associated with a given stream key/prefix
