@@ -67,6 +67,8 @@ urlencoding = "2.1"
 
 [dev-dependencies]
 axum-test = "21.0.0"
+eventsource-stream = "0.2.3"
 rand = "0.10.2"
 reqwest = { version = "0.13.4", default-features = false }
+reqwest-websocket = "0.6.0"
 tinistream-client = { path = "../clients/rust/" }

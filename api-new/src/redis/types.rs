@@ -48,15 +48,10 @@ impl RedisEntry {
         WsMessage::text(text)
     }
 
-    /// Convert this entry into JSON (adds the entry ID as the `id` field)
-    pub fn into_json(self) -> serde_json::Value {
+    /// Convert this entry into a JSON event (adds the entry ID as the `id` field)
+    pub fn into_json(self) -> JsonEvent {
         let (id, event, data) = self.into_parts();
-
-        serde_json::json!({
-            "id": id,
-            constants::EVENT_KEY: event,
-            constants::DATA_KEY: data
-        })
+        JsonEvent { id, event, data }
     }
 
     /// Returns the id, event field, and data field
@@ -72,6 +67,18 @@ impl RedisEntry {
 
         (self.id, event.unwrap_or_else(|| "unknown".into()), data)
     }
+}
+
+/// JSON event
+#[derive(Serialize)]
+pub struct JsonEvent {
+    /// ID of the event
+    pub id: RedisStr,
+    /// Name/type of the event
+    pub event: RedisStr,
+    /// Event data
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<RedisStr>,
 }
 
 /// Formatted stream event
