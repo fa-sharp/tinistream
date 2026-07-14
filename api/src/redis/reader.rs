@@ -1,133 +1,150 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
-use bytes_utils::Str;
-use fred::prelude::{HashesInterface, StreamsInterface};
-use rocket::{
-    async_stream, async_trait,
-    futures::stream::Stream,
-    http::Status,
-    request::{FromRequest, Outcome},
-    response::stream::Event as SseEvent,
-    Request,
+use fred::{
+    interfaces::ClientLike,
+    prelude::{HashesInterface, StreamsInterface},
 };
-use rocket_okapi::OpenApiFromRequest;
-use rocket_ws::{result::Error as WsError, Message as WsMessage};
+use futures::Stream;
+use time::{UtcDateTime, format_description::well_known::Rfc3339};
 
-use crate::{config::AppConfig, errors::ApiError, redis::*};
+use crate::redis::{
+    ExclusiveClient, StreamService, constants,
+    error::{RedisError, RedisResult},
+    types::{RedisEntry, RedisStr, SseEvent, StreamEvent, WsMessage},
+    util,
+};
 
-/// Request guard that retrieves a stream reader with an exclusive lock on a Redis connection, for
+/// Maximum time to block on Redis before re-checking stream state.
+const XREAD_BLOCK_MS: u64 = 30_000;
+
+/// Stream reader with an exclusive lock on a Redis connection, for
 /// long-running read operations (e.g. for streaming SSE events from Redis to clients)
-#[derive(OpenApiFromRequest)]
 pub struct RedisReader {
-    client: deadpool::managed::Object<ExclusiveClientManager>,
-    client_timeout: Duration,
+    client: ExclusiveClient,
+    stream: StreamService,
+    /// Timeout for listening for the next stream event
     client_timeout_ms: u64,
-}
-
-#[async_trait]
-impl<'r> FromRequest<'r> for RedisReader {
-    type Error =
-        deadpool::managed::PoolError<<ExclusiveClientManager as deadpool::managed::Manager>::Error>;
-
-    async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        let pool = req.rocket().state::<ExclusiveClientPool>().expect("exists");
-        let config = req.rocket().state::<AppConfig>().expect("exists");
-        match pool.get().await {
-            Ok(client) => Outcome::Success(RedisReader::new(client, config.client_timeout)),
-            Err(err) => match err {
-                deadpool::managed::PoolError::Timeout(_) => {
-                    Outcome::Error((Status::TooManyRequests, err))
-                }
-                _ => Outcome::Error((Status::InternalServerError, err)),
-            },
-        }
-    }
 }
 
 impl RedisReader {
     pub fn new(
-        client: deadpool::managed::Object<ExclusiveClientManager>,
+        client: ExclusiveClient,
         client_timeout_secs: u32,
+        stream_service: StreamService,
     ) -> Self {
         Self {
             client,
-            client_timeout: Duration::from_secs(client_timeout_secs.into()),
             client_timeout_ms: u64::from(client_timeout_secs) * 1000,
+            stream: stream_service,
         }
     }
 
-    /// Retrieve the previous events of the stream in SSE format
+    /// Retrieve the previous events of the stream in SSE format, along with the last event ID
+    /// and whether the stream has ended
     pub async fn prev_sse_events(
         &self,
         key: &str,
         start_event_id: Option<&str>,
-    ) -> Result<(Vec<SseEvent>, Str, bool), ApiError> {
+    ) -> RedisResult<(Vec<SseEvent>, RedisStr, bool)> {
         let (prev_events, last_event_id, is_end) =
             self.get_prev_events(key, start_event_id).await?;
         let sse_events = prev_events
             .into_iter()
-            .map(stream_event_to_sse)
-            .collect::<Vec<_>>();
+            .map(RedisEntry::into_sse_event)
+            .collect();
 
         Ok((sse_events, last_event_id, is_end))
     }
 
-    /// Retrieve the previous events of the stream in JSON format
+    /// Retrieve the previous events of the stream as stringified JSON, along with the
+    /// last event ID and whether the stream has ended
     pub async fn prev_json_events(
         &self,
         key: &str,
         start_event_id: Option<&str>,
-    ) -> Result<(String, Str, bool), ApiError> {
+    ) -> RedisResult<(String, RedisStr, bool)> {
         let (prev_events, last_event_id, is_end) =
             self.get_prev_events(key, start_event_id).await?;
-        let json_events = stream_events_to_json(prev_events);
+        let json_events = util::stream_entries_to_json(prev_events);
 
         Ok((json_events, last_event_id, is_end))
     }
 
+    /// Retrieve the previous events of the stream in a human-readable format for returning via API
+    pub async fn prev_formatted_events(&self, key: &str) -> RedisResult<Vec<StreamEvent>> {
+        let (prev_entries, _, _) = self.get_prev_events(key, None).await?;
+        let events = prev_entries
+            .into_iter()
+            .filter_map(|entry| {
+                let (id, event, data) = entry.into_parts();
+                let unix_millis: i64 = id.split('-').next().unwrap_or_default().parse().ok()?;
+                let date_time = UtcDateTime::from_unix_timestamp(unix_millis / 1000).ok()?;
+                let event = StreamEvent {
+                    id: (*id).to_owned(),
+                    time: date_time.format(&Rfc3339).ok()?,
+                    event: (*event).to_owned(),
+                    data: data.as_deref().map(str::to_owned),
+                };
+                Some(event)
+            })
+            .collect();
+
+        Ok(events)
+    }
+
     /// Returns a tuple containing the previous events in the stream, the last event ID,
     /// and a boolean indicating if the stream has already ended.
-    pub async fn get_prev_events(
+    async fn get_prev_events(
         &self,
         key: &str,
         start_event_id: Option<&str>,
-    ) -> Result<(Vec<RedisEntry>, Str, bool), ApiError> {
+    ) -> RedisResult<(Vec<RedisEntry>, RedisStr, bool)> {
+        let stream_key = self.stream.stream_key(key);
+        let meta_key = self.stream.meta_key(key);
         let start_event_id = start_event_id.unwrap_or("0-0");
+
         let pipeline = self.client.pipeline();
         let _: () = pipeline
-            .xrange(key, ["(", start_event_id].concat(), "+", None)
+            .xrange(stream_key, ["(", start_event_id].concat(), "+", None)
             .await?;
-        let _: () = pipeline.hget(meta_key(key), META_STATUS_FIELD).await?;
-        let (prev_events, status): (Vec<RedisEntry>, Option<String>) = pipeline.all().await?;
-        let status = status.ok_or(ApiError::StreamNotFound)?;
+        let _: () = pipeline
+            .hget(meta_key, constants::META_STATUS_FIELD)
+            .await?;
+        let (prev_events, status): (Vec<RedisEntry>, Option<RedisStr>) = pipeline.all().await?;
 
+        let status = status.ok_or(RedisError::StreamNotFound)?;
         let last_event_id = prev_events
             .last()
-            .map(|(id, _)| id.to_owned())
+            .map(|entry| entry.id.to_owned())
             .unwrap_or_else(|| start_event_id.into());
-        let is_end = *status != StreamStatus::Active;
+        let is_end = *status != constants::StreamStatus::Active;
 
         Ok((prev_events, last_event_id, is_end))
     }
 
-    /// Listen for new events in the Redis stream and return SSE events.
-    pub fn stream_sse_events(self, key: &str, last_event_id: &str) -> impl Stream<Item = SseEvent> {
-        let key = key.to_owned();
-        let mut last_event_id = last_event_id.to_owned();
+    /// Listen for new events in the Redis stream and return SSE events as a stream
+    pub fn stream_sse_events(
+        self,
+        key: &str,
+        last_event_id: &str,
+    ) -> impl Stream<Item = SseEvent> + use<> {
+        let stream_key = self.stream.stream_key(key);
+        let meta_key = self.stream.meta_key(key);
+        let mut last_event_id = RedisStr::from(last_event_id);
 
         async_stream::stream! {
-            while let Some(res) = self.next_event(&key, &last_event_id).await {
-                match res {
-                    Ok(event) if is_end_event(&event) => {
-                        yield stream_event_to_sse(event);
+            loop {
+                match self.next_event(&stream_key, &meta_key, &last_event_id).await {
+                    Ok(event) if event.is_end_event() => {
+                        yield event.into_sse_event();
                         break;
                     }
-                    Ok((id, data)) => {
-                        last_event_id = (*id).to_owned();
-                        yield stream_event_to_sse((id, data));
+                    Ok(event) => {
+                        last_event_id = event.id.clone();
+                        yield event.into_sse_event();
                     }
                     Err(err) => {
-                        yield SseEvent::data(err.to_string()).event("error");
+                        yield SseEvent::default().data(err.to_string()).event("error");
                         break;
                     }
                 }
@@ -140,29 +157,30 @@ impl RedisReader {
         self,
         key: &str,
         last_event_id: &str,
-    ) -> impl Stream<Item = Result<WsMessage, WsError>> {
-        let key = key.to_owned();
-        let mut last_event_id = last_event_id.to_owned();
+    ) -> impl Stream<Item = WsMessage> + use<> {
+        let stream_key = self.stream.stream_key(key);
+        let meta_key = self.stream.meta_key(key);
+        let mut last_event_id = RedisStr::from(last_event_id);
 
         async_stream::stream! {
-            while let Some(res) = self.next_event(&key, &last_event_id).await {
-                match res {
-                    Ok(event) if is_end_event(&event) => {
-                        yield stream_event_to_ws(event);
-                        yield Ok(WsMessage::Close(None));
+            loop {
+                match self.next_event(&stream_key, &meta_key, &last_event_id).await {
+                    Ok(event) if event.is_end_event() => {
+                        yield event.into_ws_message();
+                        yield WsMessage::Close(None);
                         break;
                     }
-                    Ok((id, data)) => {
-                        last_event_id = (*id).to_owned();
-                        yield stream_event_to_ws((id, data));
+                    Ok(event) => {
+                        last_event_id = event.id.clone();
+                        yield event.into_ws_message();
                     }
                     Err(err) => {
                         let error = err.to_string();
-                        let error_hash = HashMap::from([ERROR_ENTRY, (DATA_KEY, &error)]);
+                        let error_hash = HashMap::from([constants::ERROR_ENTRY, (constants::DATA_KEY, &error)]);
                         if let Ok(error_str) = serde_json::to_string(&error_hash) {
-                            yield Ok(WsMessage::Text(error_str));
+                            yield WsMessage::text(error_str);
                         }
-                        yield Ok(WsMessage::Close(None));
+                        yield WsMessage::Close(None);
                         break;
                     }
                 }
@@ -173,33 +191,63 @@ impl RedisReader {
     /// Wait for the next event from the given Redis stream using a blocking `xread` command.
     async fn next_event(
         &self,
-        key: &str,
+        stream_key: &str,
+        meta_key: &str,
         start_event_id: &str,
-    ) -> Option<Result<RedisEntry, ApiError>> {
-        self.xread(key, start_event_id, Some(1), Some(self.client_timeout_ms))
-            .await
-            .map(|mut entries| entries.pop()) // only reading 1 event in the command
-            .transpose()
+    ) -> RedisResult<RedisEntry> {
+        let block_timeout_ms = self.client_timeout_ms.min(XREAD_BLOCK_MS);
+
+        loop {
+            match self
+                .xread(stream_key, start_event_id, Some(1), Some(block_timeout_ms))
+                .await
+            {
+                Ok(Some(mut entries)) => {
+                    if let Some(entry) = entries.pop() {
+                        return Ok(entry); // should only be 1 entry
+                    }
+                }
+                Ok(None) => match self.is_stream_active(meta_key).await {
+                    Ok(true) => continue,
+                    Ok(false) => return Err(RedisError::StreamNotFound),
+                    Err(err) => return Err(err),
+                },
+                Err(err) => return Err(err),
+            }
+        }
     }
 
-    /// Friendly typed `XREAD` wrapper to read events from a Redis stream.
+    /// Friendlier typed blocking `XREAD` command
     async fn xread(
         &self,
-        key: &str,
+        stream_key: &str,
         start_event_id: &str,
         count: Option<u64>,
         block: Option<u64>,
-    ) -> Result<Vec<RedisEntry>, ApiError> {
-        let (_key, events) = self
+    ) -> RedisResult<Option<Vec<RedisEntry>>> {
+        let command_timeout = block
+            .map(|timeout| timeout + 5_000) // 5 second grace period for command timeout
+            .unwrap_or(self.client_timeout_ms);
+        let entries = self
             .client
             .with_options(&fred::prelude::Options {
-                timeout: Some(self.client_timeout),
+                timeout: Some(Duration::from_millis(command_timeout)),
                 ..Default::default()
             })
-            .xread::<Option<Vec<(Str, _)>>, _, _>(count, block, key, start_event_id)
+            .xread::<Option<Vec<(RedisStr, _)>>, _, _>(count, block, stream_key, start_event_id)
             .await?
             .and_then(|mut streams| streams.pop()) // only reading 1 stream in the command
-            .ok_or(ApiError::StreamNotFound)?;
-        Ok(events)
+            .map(|(_key, events)| events);
+
+        Ok(entries)
+    }
+
+    async fn is_stream_active(&self, meta_key: &str) -> RedisResult<bool> {
+        let status: Option<RedisStr> = self
+            .client
+            .hget(meta_key, constants::META_STATUS_FIELD)
+            .await?;
+
+        Ok(status.is_some_and(|s| *s == constants::StreamStatus::Active))
     }
 }

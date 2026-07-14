@@ -1,19 +1,32 @@
-use rocket::{get, serde::json::Json, Route, State};
-use rocket_okapi::{okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec};
+use axum::{Json, extract::State};
+use axum_aide_macros::api_routes;
 use schemars::JsonSchema;
 use serde::Serialize;
 
-use crate::{auth::ApiKeyAuth, config::AppConfig, redis::ExclusiveClientPool};
+use crate::state::AppState;
 
-pub fn get_routes() -> (Vec<Route>, OpenApi) {
-    openapi_get_routes_spec![health, get_info]
+api_routes! {
+    state: AppState,
+    tag: "info",
+    security: "ApiKey",
+    GET "/" => get_info, "Get server info";
 }
 
-/// # Health check
-#[openapi(tag = "Info")]
-#[get("/health")]
-fn health() -> &'static str {
-    "OK"
+/// Get information about the server
+async fn get_info<'r>(State(state): State<AppState>) -> Json<InfoResponse> {
+    let streaming_available = state.exclusive_clients.num_available();
+    let redis_stats = RedisStats {
+        r#static: state.config.redis_pool,
+        streaming_in_use: state.config.max_clients - streaming_available,
+        streaming_available,
+        streaming_max: state.config.max_clients,
+    };
+
+    Json(InfoResponse {
+        url: state.config.base_url.clone(),
+        version: format!("v{}", env!("CARGO_PKG_VERSION")),
+        redis: redis_stats,
+    })
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -27,37 +40,10 @@ struct InfoResponse {
 struct RedisStats {
     /// Number of static connections
     r#static: usize,
-    /// Number of streaming connections
-    streaming: usize,
     /// Number of in-use streaming connections
     streaming_in_use: usize,
     /// Number of available streaming connections
     streaming_available: usize,
     /// Maximum number of streaming connections
     streaming_max: usize,
-}
-
-/// # Get info
-/// Get information about the server
-#[openapi(tag = "Info")]
-#[get("/info")]
-async fn get_info(
-    _api_key: ApiKeyAuth,
-    app_config: &State<AppConfig>,
-    redis_pool: &State<ExclusiveClientPool>,
-) -> Json<InfoResponse> {
-    let redis_status = redis_pool.status();
-    let redis_stats = RedisStats {
-        r#static: app_config.redis_pool.unwrap_or(4),
-        streaming: redis_status.size,
-        streaming_in_use: redis_status.size - redis_status.available,
-        streaming_available: redis_status.available,
-        streaming_max: redis_status.max_size,
-    };
-
-    Json(InfoResponse {
-        url: app_config.server_address.clone(),
-        version: format!("v{}", env!("CARGO_PKG_VERSION")),
-        redis: redis_stats,
-    })
 }

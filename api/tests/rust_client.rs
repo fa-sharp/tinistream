@@ -1,19 +1,24 @@
 use std::{collections::HashMap, time::Duration};
 
 use eventsource_stream::Eventsource;
+use futures::{SinkExt, StreamExt};
 use reqwest_websocket::Upgrade;
-use rocket::futures::{SinkExt, StreamExt};
-use tinistream_client::{types::*, ClientEventsExt, ClientStreamExt};
+use serde::Deserialize;
+use tinistream_client::{
+    ClientIngestExt, ClientStreamExt,
+    types::{AddEvent, AddEventsRequest, StreamRequest},
+};
+
+use crate::common::{
+    add_events_task, setup_backend_client, setup_frontend_client, setup_http_server,
+};
 
 mod common;
 
-use crate::common::{add_events_task, setup_backend_client, setup_frontend_reqwest, setup_rocket};
-
-#[rocket::async_test]
-async fn server() -> Result<(), tokio::io::Error> {
-    let (rocket, port, shutdown) = setup_rocket().await?;
+#[tokio::test]
+async fn basic() -> anyhow::Result<()> {
+    let (port, _server, shutdown) = setup_http_server().await?;
     let client = setup_backend_client(port);
-
     let key = rand::random::<u16>().to_string();
 
     // Create stream
@@ -49,7 +54,7 @@ async fn server() -> Result<(), tokio::io::Error> {
         .await
         .unwrap();
     assert!(res.status().is_success());
-    assert_eq!(res.ids.len(), 5);
+    assert_eq!(res.num_events, 5);
 
     // End stream
     let res = client
@@ -65,21 +70,20 @@ async fn server() -> Result<(), tokio::io::Error> {
     assert!(res.status().is_success());
     assert_eq!(res.len(), 0);
 
-    // Shutdown rocket
-    shutdown.notify();
-    rocket.await.unwrap().expect("Rocket failed to shutdown");
+    // Shutdown server
+    shutdown.await.expect("failed to shutdown server");
 
     Ok(())
 }
 
-#[rocket::async_test]
-async fn client_sse() -> Result<(), std::io::Error> {
-    let (rocket, port, shutdown) = setup_rocket().await?;
-    let backend_client = setup_backend_client(port);
+#[tokio::test]
+async fn client_sse() -> anyhow::Result<()> {
+    let (port, _server, shutdown) = setup_http_server().await?;
+    let client = setup_backend_client(port);
 
     // Create stream and get token
     let key = rand::random::<u16>().to_string();
-    let res = backend_client
+    let res = client
         .create_stream()
         .body(StreamRequest::builder().key(&key))
         .send()
@@ -88,16 +92,16 @@ async fn client_sse() -> Result<(), std::io::Error> {
         .into_inner();
 
     // Spawn task to add events to the Redis stream on an interval
-    let add_events_task = add_events_task(backend_client, &key);
+    let add_events_task = add_events_task(client, &key);
 
     // Create frontend client
-    let client = setup_frontend_reqwest(&res.token);
+    let frontend_client = setup_frontend_client(&res.token);
 
     // Delay a bit before connecting, to test that old events are still received
     tokio::time::sleep(Duration::from_secs(2)).await;
 
     // Connect to SSE stream
-    let res = client
+    let res = frontend_client
         .get(format!("http://localhost:{port}/api/client/sse?key={key}"))
         .send()
         .await
@@ -116,10 +120,9 @@ async fn client_sse() -> Result<(), std::io::Error> {
         }
     }
 
-    // Shutdown events task and rocket
+    // Shutdown events task and server
     add_events_task.await.expect("should complete");
-    shutdown.notify();
-    rocket.await.unwrap().expect("Rocket failed to shutdown");
+    shutdown.await.expect("failed to shutdown server");
 
     // Make sure all events were received
     assert_eq!(errors.len(), 0, "Errors during stream: {errors:?}");
@@ -135,14 +138,14 @@ async fn client_sse() -> Result<(), std::io::Error> {
     Ok(())
 }
 
-#[rocket::async_test]
-async fn client_websocket() -> Result<(), std::io::Error> {
-    let (rocket, port, shutdown) = setup_rocket().await?;
-    let backend_client = setup_backend_client(port);
+#[tokio::test]
+async fn client_websocket() -> anyhow::Result<()> {
+    let (port, _server, shutdown) = setup_http_server().await?;
+    let client = setup_backend_client(port);
 
     // Create stream and get token
     let key = rand::random::<u16>().to_string();
-    let res = backend_client
+    let res = client
         .create_stream()
         .body(StreamRequest::builder().key(&key))
         .send()
@@ -151,10 +154,10 @@ async fn client_websocket() -> Result<(), std::io::Error> {
     let token = res.into_inner().token;
 
     // Spawn task to add events to the Redis stream on an interval
-    let add_events_task = add_events_task(backend_client, &key);
+    let add_events_task = add_events_task(client, &key);
 
     // Create frontend client
-    let client = setup_frontend_reqwest(&token);
+    let client = setup_frontend_client(&token);
 
     // Delay a bit before connecting, to test that old events are still received
     tokio::time::sleep(Duration::from_secs(2)).await;
@@ -177,9 +180,10 @@ async fn client_websocket() -> Result<(), std::io::Error> {
             Ok(msg) => match msg {
                 reqwest_websocket::Message::Text(t) => {
                     if index == 0 {
-                        let prev_events = serde_json::from_str::<Vec<HashMap<String, String>>>(&t)
+                        let prev_events = serde_json::from_str::<PrevEvents>(&t)
                             .expect("should parse previous events");
-                        events.extend(prev_events);
+                        assert_eq!(prev_events.event, "prev_events");
+                        events.extend(prev_events.data);
                     } else {
                         let parsed = serde_json::from_str::<HashMap<String, String>>(&t)
                             .expect("should parse event");
@@ -196,10 +200,9 @@ async fn client_websocket() -> Result<(), std::io::Error> {
     }
     stream.close().await.expect("should close connection");
 
-    // Shutdown events task and rocket
+    // Shutdown events task and server
     add_events_task.await.expect("should complete");
-    shutdown.notify();
-    rocket.await.unwrap().expect("Rocket failed to shutdown");
+    shutdown.await.expect("failed to shutdown server");
 
     // Make sure all events were received
     assert_eq!(errors.len(), 0, "Errors during stream: {errors:?}");
@@ -213,4 +216,10 @@ async fn client_websocket() -> Result<(), std::io::Error> {
     }
 
     Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+struct PrevEvents {
+    event: String,
+    data: Vec<HashMap<String, String>>,
 }

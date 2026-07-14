@@ -1,62 +1,67 @@
 use fred::prelude::*;
+use futures::StreamExt;
 use itertools::Itertools;
-use rocket::{
-    futures::StreamExt,
-    request::{FromRequest, Outcome},
-    Request,
-};
-use rocket_okapi::OpenApiFromRequest;
 
-use crate::redis::{constants::*, util::*, StaticPool};
+use crate::redis::{AddEvent, StreamService, constants, types::RedisStr};
 
-/// Request guard to retrieve a Redis client from the static pool. This should
-/// not be used for long-running or blocking requests (use the `RedisReader` instead).
-#[derive(OpenApiFromRequest)]
+/// Redis client from static pool. Used for quick operations like retrieving stream status and
+/// initializing a stream, not long-running / blocking commands.
 pub struct RedisClient {
     client: Client,
-}
-
-#[rocket::async_trait]
-impl<'r> FromRequest<'r> for RedisClient {
-    type Error = String;
-
-    async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        let pool = req.rocket().state::<StaticPool>().expect("should exist");
-        Outcome::Success(RedisClient {
-            client: pool.next().clone(),
-        })
-    }
+    stream: StreamService,
+    max_len: u32,
 }
 
 impl RedisClient {
-    pub async fn stream_info(&self, key: &str) -> FredResult<(Option<String>, u64, i64)> {
+    pub fn new(client: Client, max_len: u32, stream_service: StreamService) -> Self {
+        Self {
+            client,
+            max_len,
+            stream: stream_service,
+        }
+    }
+
+    /// Get status, length, and TTL of a stream
+    pub async fn stream_info(&self, key: &str) -> FredResult<(Option<RedisStr>, u64, i64)> {
+        let stream_key = self.stream.stream_key(key);
+        let meta_key = self.stream.meta_key(key);
+
         let pipeline = self.client.pipeline();
-        let _: () = pipeline.hget(meta_key(key), META_STATUS_FIELD).await?;
-        let _: () = pipeline.xlen(key).await?;
-        let _: () = pipeline.ttl(key).await?;
+        let _: () = pipeline
+            .hget(meta_key, constants::META_STATUS_FIELD)
+            .await?;
+        let _: () = pipeline.xlen(&stream_key).await?;
+        let _: () = pipeline.ttl(&stream_key).await?;
 
         pipeline.all().await
     }
 
     /// Check if there's an active stream with the given key
     pub async fn is_active(&self, key: &str) -> FredResult<bool> {
-        let status: Option<String> = self.client.hget(meta_key(key), META_STATUS_FIELD).await?;
-        Ok(status.is_some_and(|s| *s == StreamStatus::Active))
+        let status: Option<RedisStr> = self
+            .client
+            .hget(self.stream.meta_key(key), constants::META_STATUS_FIELD)
+            .await?;
+        Ok(status.is_some_and(|s| *s == constants::StreamStatus::Active))
     }
 
     /// Start a new stream with the given key by writing a `start` entry and setting the expiration.
     /// Deletes any old stream at the same key (make sure to check for an active stream beforehand).
     /// Returns the ID of the start entry.
-    pub async fn start_stream(&self, key: &str, ttl: u32) -> FredResult<String> {
-        let meta_key = meta_key(key);
-        let trx = self.client.multi();
-        let _: () = trx.del(&[key, &meta_key]).await?;
-        let _: () = trx.xadd(key, false, None, "*", START_ENTRY).await?;
-        let _: () = trx.expire(key, ttl.into(), None).await?;
-        let _: () = trx.hset(&meta_key, META_ACTIVE).await?;
-        let _: () = trx.expire(&meta_key, ttl.into(), None).await?;
-        let mut responses: Vec<Value> = trx.exec(true).await?;
+    pub async fn start_stream(&self, key: &str, ttl: u32) -> FredResult<RedisStr> {
+        let stream_key = self.stream.stream_key(key);
+        let meta_key = self.stream.meta_key(key);
 
+        let trx = self.client.multi();
+        let _: () = trx.del(&[&stream_key, &meta_key]).await?;
+        let _: () = trx
+            .xadd(&stream_key, false, None, "*", constants::START_ENTRY)
+            .await?;
+        let _: () = trx.expire(&stream_key, ttl.into(), None).await?;
+        let _: () = trx.hset(&meta_key, constants::META_ACTIVE).await?;
+        let _: () = trx.expire(&meta_key, ttl.into(), None).await?;
+
+        let mut responses: Vec<Value> = trx.exec(true).await?;
         responses.swap_remove(1).convert()
     }
 
@@ -65,39 +70,59 @@ impl RedisClient {
     pub async fn write_events(
         &self,
         key: &str,
-        events: Vec<Vec<(&str, &str)>>,
-    ) -> FredResult<Vec<String>> {
+        events: impl IntoIterator<Item = AddEvent>,
+    ) -> FredResult<Vec<RedisStr>> {
+        let stream_key = self.stream.stream_key(key);
+
         let trx = self.client.multi();
-        for event in events {
-            let _: () = trx.xadd(key, true, XADD_CAP, "*", event).await?;
+        for ev in events {
+            let entry = match ev.data.as_deref() {
+                Some(data) => vec![
+                    (constants::EVENT_KEY, ev.event.as_str()),
+                    (constants::DATA_KEY, data),
+                ],
+                None => vec![(constants::EVENT_KEY, ev.event.as_str())],
+            };
+            let _: () = trx
+                .xadd(&stream_key, true, ("MAXLEN", "~", self.max_len), "*", entry)
+                .await?;
         }
         trx.exec(true).await
     }
 
     /// Mark the stream as ended.
     pub async fn end_stream(&self, key: &str) -> FredResult<()> {
+        let stream_key = self.stream.stream_key(key);
+        let meta_key = self.stream.meta_key(key);
+
         let trx = self.client.multi();
-        let _: () = trx.xadd(key, true, None, "*", END_ENTRY).await?;
-        let _: () = trx.hset(meta_key(key), META_ENDED).await?;
+        let _: () = trx
+            .xadd(stream_key, true, None, "*", constants::END_ENTRY)
+            .await?;
+        let _: () = trx.hset(meta_key, constants::META_ENDED).await?;
         trx.exec(true).await
     }
 
     /// Mark the stream as cancelled.
     pub async fn cancel_stream(&self, key: &str) -> FredResult<()> {
+        let stream_key = self.stream.stream_key(key);
+        let meta_key = self.stream.meta_key(key);
+
         let trx = self.client.multi();
-        let _: () = trx.xadd(key, true, None, "*", CANCEL_ENTRY).await?;
-        let _: () = trx.hset(meta_key(key), META_CANCELLED).await?;
+        let _: () = trx
+            .xadd(stream_key, true, None, "*", constants::CANCEL_ENTRY)
+            .await?;
+        let _: () = trx.hset(meta_key, constants::META_CANCELLED).await?;
         trx.exec(true).await
     }
 
     /// Get the ID, length, and TTL of all active streams matching the given pattern.
-    pub async fn scan_streams(&self, pattern: &str) -> FredResult<Vec<(String, u64, i64)>> {
+    pub async fn scan_streams(&self, pattern: Option<&str>) -> FredResult<Vec<(String, u64, i64)>> {
         use fred::types::scan::{ScanType, Scanner};
         const PAGE_COUNT: u32 = 50;
-        const META_PREFIX_LEN: usize = META_PREFIX.len();
 
         // Scan for metadata keys matching the pattern
-        let meta_pattern = meta_key(pattern);
+        let meta_pattern = self.stream.meta_key(pattern.unwrap_or("*"));
         let mut stream_keys: Vec<(String, String)> = Vec::with_capacity(PAGE_COUNT as usize);
         let mut scan_stream =
             self.client
@@ -106,7 +131,7 @@ impl RedisClient {
             let meta_keys = page?.take_results().unwrap_or_default();
             stream_keys.extend(meta_keys.into_iter().filter_map(|meta_key| {
                 let meta_key_str = meta_key.into_string()?;
-                let key = &meta_key_str[META_PREFIX_LEN..];
+                let key = &meta_key_str[self.stream.meta_key_prefix_len()..];
                 Some((key.to_owned(), meta_key_str))
             }));
         }
@@ -114,9 +139,12 @@ impl RedisClient {
         // Get status, length, and TTL of each stream
         let pipeline = self.client.pipeline();
         for (key, meta_key) in &stream_keys {
-            let _: () = pipeline.hget(meta_key, META_STATUS_FIELD).await?;
-            let _: () = pipeline.xlen(key).await?;
-            let _: () = pipeline.ttl(key).await?;
+            let stream_key = self.stream.stream_key(key);
+            let _: () = pipeline
+                .hget(meta_key, constants::META_STATUS_FIELD)
+                .await?;
+            let _: () = pipeline.xlen(&stream_key).await?;
+            let _: () = pipeline.ttl(&stream_key).await?;
         }
         let stream_info: Vec<Value> = pipeline.all().await?;
 
@@ -125,7 +153,7 @@ impl RedisClient {
             .into_iter()
             .zip(stream_info.into_iter().tuples())
             .filter_map(|((key, _), (status, len, ttl))| {
-                if *status.as_str()? == StreamStatus::Active {
+                if *status.as_str()? == constants::StreamStatus::Active {
                     Some((key.to_owned(), len.as_u64()?, ttl.as_i64()?))
                 } else {
                     None

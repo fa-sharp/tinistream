@@ -1,38 +1,45 @@
-use rocket::{get, post, serde::json::Json, Route, State};
-use rocket_okapi::{okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec};
+use axum::{Json, extract::State};
+use axum_aide_macros::api_routes;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use time::{format_description::well_known, UtcDateTime};
 
 use crate::{
-    auth::{create_client_token, ApiKeyAuth, TokenEncryption},
-    config::AppConfig,
-    errors::ApiError,
-    redis::*,
+    error::{AppError, AppResult},
+    extractors::{JsonBody, Query, ReaderClient, StaticClient},
+    redis::{StreamEvent, StreamStatus},
+    state::AppState,
 };
 
-pub fn get_routes() -> (Vec<Route>, OpenApi) {
-    openapi_get_routes_spec![
-        list_streams,
-        create_stream,
-        create_token,
-        get_stream_info,
-        get_stream_events,
-        cancel_stream,
-        end_stream
-    ]
+api_routes! {
+    state: AppState,
+    tag: "stream",
+    security: "ApiKey",
+    GET "/" => list_streams, "List streams";
+    GET "/info" => get_stream_info, "Get stream info";
+    GET "/events" => get_stream_events, "Get stream events";
+    POST "/" => create_stream, "Create stream";
+    POST "/token" => create_token, "Create client token";
+    POST "/cancel" => cancel_stream, "Cancel stream";
+    POST "/end" => end_stream, "End stream";
 }
 
-/// # List streams
-/// List all active streams
-#[openapi(tag = "Stream")]
-#[get("/?<pattern>")]
+#[derive(Debug, Deserialize, JsonSchema)]
+struct StreamPatternQuery {
+    /// Key prefix / pattern to search for
+    pattern: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct StreamKeyQuery {
+    /// Key of the stream
+    key: String,
+}
+
 async fn list_streams(
-    _api_key: ApiKeyAuth,
-    pattern: Option<&str>,
-    redis: RedisClient,
-) -> Result<Json<Vec<StreamInfo>>, ApiError> {
-    let streams = redis.scan_streams(pattern.unwrap_or("*")).await?;
+    Query(query): Query<StreamPatternQuery>,
+    StaticClient(redis): StaticClient,
+) -> AppResult<Json<Vec<StreamInfo>>> {
+    let streams = redis.scan_streams(query.pattern.as_deref()).await?;
     let response = streams
         .into_iter()
         .map(|(key, length, ttl)| StreamInfo { key, length, ttl })
@@ -41,112 +48,84 @@ async fn list_streams(
     Ok(Json(response))
 }
 
-/// # Get stream info
-/// Get info on an active stream
-#[openapi(tag = "Stream")]
-#[get("/info?<key>")]
 async fn get_stream_info(
-    _api_key: ApiKeyAuth,
-    key: &str,
-    redis: RedisClient,
-) -> Result<Json<StreamInfo>, ApiError> {
-    let (status, length, ttl) = redis.stream_info(key).await?;
+    Query(query): Query<StreamKeyQuery>,
+    StaticClient(redis): StaticClient,
+) -> AppResult<Json<StreamInfo>> {
+    let (status, length, ttl) = redis.stream_info(&query.key).await?;
     if status.is_none_or(|s| *s != StreamStatus::Active) {
-        return Err(ApiError::ActiveStreamNotFound);
+        return Err(AppError::not_found("active stream not found"));
     }
 
     Ok(Json(StreamInfo {
-        key: key.to_owned(),
+        key: query.key.to_owned(),
         length,
         ttl,
     }))
 }
 
-/// # Get stream events
-/// Get all events so far in a stream
-#[openapi(tag = "Stream")]
-#[get("/events?<key>")]
 async fn get_stream_events(
-    _api_key: ApiKeyAuth,
-    key: &str,
-    reader: RedisReader,
-) -> Result<Json<Vec<StreamEvent>>, ApiError> {
-    let (prev_events, _, _) = reader.get_prev_events(key, None).await?;
-    let events = prev_events
-        .into_iter()
-        .filter_map(|(id, mut data)| {
-            let unix_millis: i64 = id.split('-').next().unwrap_or_default().parse().ok()?;
-            let date_time = UtcDateTime::from_unix_timestamp(unix_millis / 1000).ok()?;
-            let iso_time = date_time.format(&well_known::Rfc3339).ok()?;
-            let event = StreamEvent {
-                id: (*id).to_owned(),
-                time: iso_time,
-                event: data.remove(EVENT_KEY).as_deref().map(|e| e.to_owned())?,
-                data: data.remove(DATA_KEY).as_deref().map(|d| d.to_owned()),
-            };
-            Some(event)
-        })
-        .collect();
-
+    Query(query): Query<StreamKeyQuery>,
+    ReaderClient(reader): ReaderClient,
+) -> AppResult<Json<Vec<StreamEvent>>> {
+    let events = reader.prev_formatted_events(&query.key).await?;
     Ok(Json(events))
 }
 
 /// # Create stream
 /// Create a new stream, and get a client URL and token to connect to the stream
-#[openapi(tag = "Stream")]
-#[post("/", data = "<input>")]
 async fn create_stream(
-    _api_key: ApiKeyAuth,
-    input: Json<StreamRequest>,
-    redis: RedisClient,
-    token_crypto: &State<TokenEncryption>,
-    config: &State<AppConfig>,
-) -> Result<Json<StreamAccessResponse>, ApiError> {
+    StaticClient(redis): StaticClient,
+    State(state): State<AppState>,
+    JsonBody(input): JsonBody<StreamRequest>,
+) -> AppResult<Json<StreamAccessResponse>> {
     if redis.is_active(&input.key).await? {
-        return Err(ApiError::ExistingStream);
+        return Err(AppError::bad_request("stream at this key already exists"));
     }
-    redis.start_stream(&input.key, config.ttl).await?;
-
-    let plaintext_token = create_client_token(&input.key, config.ttl);
-    let token = token_crypto.encrypt_base64(&plaintext_token)?;
+    let _start_id = redis
+        .start_stream(&input.key, state.config.stream_ttl)
+        .await?;
+    let token = state
+        .client_tokens()
+        .create(&input.key, state.config.stream_ttl)?;
+    let stream_service = state.streams();
 
     Ok(Json(StreamAccessResponse {
-        sse_url: stream_sse_url(&input.key, &config.server_address),
-        ws_url: stream_ws_url(&input.key, &config.server_address),
+        sse_url: stream_service.sse_url(&input.key),
+        ws_url: stream_service.ws_url(&input.key),
         token,
     }))
 }
 
 /// # Create stream token
-/// Create a new client token to connect to a stream
-#[openapi(tag = "Stream")]
-#[post("/token", data = "<input>")]
+/// Create a new client token for connecting to a stream
 async fn create_token(
-    _api_key: ApiKeyAuth,
-    input: Json<StreamRequest>,
-    token_crypto: &State<TokenEncryption>,
-    config: &State<AppConfig>,
-) -> Result<Json<StreamAccessResponse>, ApiError> {
-    let plaintext_token = create_client_token(&input.key, config.ttl);
-    let token = token_crypto.encrypt_base64(&plaintext_token)?;
+    StaticClient(redis): StaticClient,
+    State(state): State<AppState>,
+    JsonBody(input): JsonBody<StreamRequest>,
+) -> AppResult<Json<StreamAccessResponse>> {
+    if !redis.is_active(&input.key).await? {
+        return Err(AppError::not_found("active stream not found"));
+    }
+    let token = state
+        .client_tokens()
+        .create(&input.key, state.config.stream_ttl)?;
+    let stream_service = state.streams();
 
     Ok(Json(StreamAccessResponse {
-        sse_url: stream_sse_url(&input.key, &config.server_address),
-        ws_url: stream_ws_url(&input.key, &config.server_address),
+        sse_url: stream_service.sse_url(&input.key),
+        ws_url: stream_service.ws_url(&input.key),
         token,
     }))
 }
 
 /// # Cancel stream
-#[openapi(tag = "Stream")]
-#[post("/cancel", data = "<input>")]
 async fn cancel_stream(
-    _api_key: ApiKeyAuth,
-    input: Json<StreamRequest>,
-    redis: RedisClient,
-) -> Result<Json<EndStreamResponse>, ApiError> {
+    StaticClient(redis): StaticClient,
+    JsonBody(input): JsonBody<StreamRequest>,
+) -> AppResult<Json<EndStreamResponse>> {
     if !redis.is_active(&input.key).await? {
-        return Err(ApiError::ActiveStreamNotFound);
+        return Err(AppError::not_found("active stream not found"));
     }
     redis.cancel_stream(&input.key).await?;
 
@@ -156,15 +135,12 @@ async fn cancel_stream(
 }
 
 /// # End stream
-#[openapi(tag = "Stream")]
-#[post("/end", data = "<input>")]
 async fn end_stream(
-    _api_key: ApiKeyAuth,
-    input: Json<StreamRequest>,
-    redis: RedisClient,
-) -> Result<Json<EndStreamResponse>, ApiError> {
+    StaticClient(redis): StaticClient,
+    JsonBody(input): JsonBody<StreamRequest>,
+) -> AppResult<Json<EndStreamResponse>> {
     if !redis.is_active(&input.key).await? {
-        return Err(ApiError::ActiveStreamNotFound);
+        return Err(AppError::not_found("active stream not found"));
     }
     redis.end_stream(&input.key).await?;
 
@@ -182,19 +158,6 @@ pub struct StreamInfo {
     length: u64,
     /// Expiration of the stream
     ttl: i64,
-}
-
-#[derive(JsonSchema, Serialize)]
-pub struct StreamEvent {
-    /// ID of the event
-    id: String,
-    /// Time of the event (ISO 8601 format)
-    time: String,
-    /// Name/type of the event
-    event: String,
-    /// Event data
-    #[serde(skip_serializing_if = "Option::is_none")]
-    data: Option<String>,
 }
 
 #[derive(JsonSchema, Deserialize)]

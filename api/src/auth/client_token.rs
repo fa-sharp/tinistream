@@ -1,107 +1,58 @@
-use rocket::{
-    http::{hyper::header::AUTHORIZATION, Status},
-    outcome::{try_outcome, IntoOutcome},
-    request::{FromRequest, Outcome},
-    Request,
-};
-use rocket_okapi::request::OpenApiFromRequest;
 use time::{Duration, UtcDateTime};
 
-use super::{AuthError, TokenEncryption};
+use crate::auth::{AuthError, TokenEncryption};
 
-/// Request guard to extract, decrypt, and validate the client token for this request
-pub struct ClientTokenAuth(String);
-
-impl std::ops::Deref for ClientTokenAuth {
-    type Target = str;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
+pub struct ClientToken<'r> {
+    encryptor: &'r TokenEncryption,
 }
 
-#[rocket::async_trait]
-impl<'r> FromRequest<'r> for ClientTokenAuth {
-    type Error = AuthError;
-
-    async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        // Try to get token from the Authorization header, or from the 'token' query
-        let encrypted_token = try_outcome!(req
-            .headers()
-            .get_one(AUTHORIZATION.as_str())
-            .and_then(|value| value.strip_prefix("Bearer "))
-            .or(req
-                .query_fields()
-                .find_map(|field| (field.name == "token").then_some(field.value)))
-            .or_error((Status::Unauthorized, AuthError::MissingToken)));
-
-        // Decrypt the client token
-        let crypto = req
-            .rocket()
-            .state::<TokenEncryption>()
-            .expect("should be attached");
-        let token = try_outcome!(crypto
-            .decrypt_base64(encrypted_token)
-            .or_error(Status::Unauthorized));
-
-        // Validate the client token is not expired and has access to the requested stream key
-        let stream_key = req
-            .query_fields()
-            .find_map(|field| (field.name == "key").then_some(field.value))
-            .unwrap_or_default();
-        match validate_client_token(&token, stream_key) {
-            Ok(_) => Outcome::Success(ClientTokenAuth(token)),
-            Err(err) => Outcome::Error((Status::Unauthorized, err)),
-        }
-    }
+struct TokenPayload<'t> {
+    key: &'t str,
+    expires_at: UtcDateTime,
 }
 
-/// Create a plaintext client token that gives access to the given stream key
-/// and is valid for the given length of time
-pub fn create_client_token(key: &str, ttl: u32) -> String {
-    let ttl_duration = Duration::seconds(ttl.into());
-    let unix_expires = (UtcDateTime::now() + ttl_duration).unix_timestamp();
-    format!("{unix_expires}:{key}")
-}
-
-/// Verify that the plaintext client token matches the given stream key and is not expired
-fn validate_client_token(token: &str, key: &str) -> Result<(), AuthError> {
-    let (unix_expires, token_key) = token.split_once(':').ok_or(AuthError::InvalidToken)?;
-    let expiration = UtcDateTime::from_unix_timestamp(unix_expires.parse().unwrap_or_default())
-        .map_err(|_| AuthError::InvalidToken)?;
-    if expiration < UtcDateTime::now() {
-        return Err(AuthError::ExpiredToken);
-    }
-    if token_key != key {
-        return Err(AuthError::PermissionDenied);
+impl<'r> ClientToken<'r> {
+    pub fn new(encryptor: &'r TokenEncryption) -> Self {
+        Self { encryptor }
     }
 
-    Ok(())
-}
-
-/// OpenAPI docs for the client token
-impl OpenApiFromRequest<'_> for ClientTokenAuth {
-    fn from_request_input(
-        _gen: &mut rocket_okapi::r#gen::OpenApiGenerator,
-        _name: String,
-        _required: bool,
-    ) -> rocket_okapi::Result<rocket_okapi::request::RequestHeaderInput> {
-        use rocket_okapi::{okapi::openapi3, request::RequestHeaderInput};
-
-        let security_scheme = openapi3::SecurityScheme {
-            description: Some("Provide client token as a Bearer token.".to_owned()),
-            data: openapi3::SecuritySchemeData::Http {
-                scheme: "bearer".to_owned(),
-                bearer_format: Some("bearer".to_owned()),
-            },
-            extensions: openapi3::Object::default(),
+    /// Create an encrypted client token that gives access to the given stream key
+    /// and is valid for the given length of time
+    pub fn create(&self, key: &str, ttl: u32) -> Result<String, AuthError> {
+        let payload = TokenPayload {
+            key,
+            expires_at: UtcDateTime::now() + Duration::seconds(ttl.into()),
         };
-        let mut security_req = openapi3::SecurityRequirement::new();
-        security_req.insert("ClientToken".to_owned(), Vec::new());
+        let token_str = payload.to_token_str();
 
-        Ok(RequestHeaderInput::Security(
-            "ClientToken".to_owned(),
-            security_scheme,
-            security_req,
-        ))
+        self.encryptor.encrypt_base64(&token_str)
+    }
+
+    /// Verify that the encrypted client token is valid and matches the given stream key
+    pub fn validate(&self, token: &str, key: &str) -> Result<(), AuthError> {
+        let token_str = self.encryptor.decrypt_base64(token)?;
+        let payload = TokenPayload::from_token_str(&token_str)?;
+        if payload.key != key {
+            return Err(AuthError::PermissionDenied);
+        }
+
+        Ok(())
+    }
+}
+
+impl<'t> TokenPayload<'t> {
+    fn to_token_str(&self) -> String {
+        format!("{}:{}", self.expires_at.unix_timestamp(), self.key)
+    }
+
+    fn from_token_str(token_str: &'t str) -> Result<Self, AuthError> {
+        let (unix_expires, key) = token_str.split_once(':').ok_or(AuthError::InvalidToken)?;
+        let expires_at = UtcDateTime::from_unix_timestamp(unix_expires.parse().unwrap_or_default())
+            .map_err(|_| AuthError::InvalidToken)?;
+        if expires_at < UtcDateTime::now() {
+            return Err(AuthError::ExpiredToken);
+        }
+
+        Ok(Self { key, expires_at })
     }
 }

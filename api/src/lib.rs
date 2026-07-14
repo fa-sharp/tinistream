@@ -1,39 +1,25 @@
-pub mod api;
-pub mod auth;
-pub mod config;
-pub mod cors;
-pub mod data;
-pub mod errors;
-pub mod openapi;
-pub mod redis;
+use axum_plugin::{App, InitializedApp};
 
-use rocket::fairing::AdHoc;
-use rocket_okapi::mount_endpoints_and_merged_docs;
+use crate::{config::AppConfig, state::AppState};
 
-use crate::{
-    config::{get_config_provider, AppConfig},
-    errors::get_catchers,
-    openapi::get_openapi_routes,
-};
+mod api;
+mod auth;
+mod config;
+mod error;
+mod extractors;
+mod plugins;
+mod redis;
+mod state;
 
-/// Build the rocket server, load configuration and routes, prepare for launch
-pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
-    let mut rocket = rocket::custom(get_config_provider())
-        .attach(AdHoc::config::<AppConfig>())
-        .attach(redis::setup_redis())
-        .attach(auth::setup_encryption())
-        .attach(cors::setup_cors())
-        .register("/", get_catchers())
-        .mount("/api/docs", get_openapi_routes())
-        .mount("/api/client", api::client_routes());
+pub async fn create_app() -> anyhow::Result<InitializedApp<AppState, AppConfig>> {
+    let app = App::from_env_and_file("STREAMER_", "config.toml")?
+        .register(plugins::crypto::plugin()) // Add token encryption
+        .register(plugins::redis::plugin()) // Connect and setup Redis pools
+        .register(api::plugin()) // Add API routes
+        .register(plugins::logging::plugin()) // Request logging
+        .register(plugins::security::plugin()) // Body limit, security headers, etc.
+        .init()
+        .await?;
 
-    let openapi_settings = rocket_okapi::settings::OpenApiSettings::default();
-    mount_endpoints_and_merged_docs! {
-        rocket, "/", openapi_settings,
-        "/api" => api::info_routes(),
-        "/api/stream" => api::stream_routes(),
-        "/api/event" => api::event_routes()
-    };
-
-    rocket
+    Ok(app)
 }

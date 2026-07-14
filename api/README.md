@@ -1,68 +1,134 @@
-# tinistream
+# Axum Web Service Template
 
-A streaming microservice built with Rust, powered by Redis streams.
+A production-ready template for building web services with Rust and Axum.
 
-## Getting Started
+## Features
 
-### Prerequisites
+- **Axum** - Fast and ergonomic web framework
+- **Configuration Management** - Environment-based config with `figment`
+- **Structured API Errors** - JSON error responses with an `AppError` type for route handlers
+- **Structured Logging** - JSON logging in production with `tracing`
+- **Secure Defaults** - Default HTTP security headers, request body limit and timeout with `tower-http`
+- **Optional Request Logging** - Request IDs and HTTP request/response logs with `tower-http`
+- **Graceful Shutdown** - Handles SIGTERM and SIGINT signals
+- ️**Plugin Architecture** - Modular app initialization with `axum-plugin`
+- **Optional OpenAPI** - API documentation with `aide` (optional)
+- **Docker / OCI** - Dockerfile with sensible defaults for quick deployment
 
-- Rust 1.70+
-- Redis
+## Usage
 
-### Setup
+### Using cargo-generate
 
-1. **Clone and navigate to the project:**
-   ```bash
-   cd api
-   ```
+Install cargo-generate if you haven't already:
 
-2. **Environment setup:**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
+```bash
+cargo install cargo-generate
+```
 
-4. **Run the application:**
-   ```bash
-   cargo run
-   ```
+Generate a new project from this template:
 
-The server will start at `http://localhost:8000`
+```bash
+cargo generate --git https://git.fasharp.io/fa-sharp/axum-template
+```
 
+You'll be prompted for:
+- **Project name**: The name of your new project
+- **Project description**: A brief description
+- **Environment variable prefix**: Prefix for env vars (e.g., `APP` for `APP_HOST`, `APP_PORT`)
+- **Default port**: The server's default port
+- **Default log level**: trace, debug, info, warn, or error
+- **Include request logging**: Whether to include request ID and request/response logging middleware
+- **Include aide**: Whether to include OpenAPI documentation support
+
+## Configuration
+
+Configuration is loaded from environment variables and validated in the `config.rs` file. The variable prefix is configurable during template generation.
+
+Example with `APP` prefix:
+
+```bash
+# Required
+APP_API_KEY=your-secret-key
+
+# Optional (defaults shown)
+APP_HOST=127.0.0.1
+APP_PORT=8080
+APP_LOG_LEVEL=info
+APP_REQUEST_ID_HEADER=x-request-id
+```
+
+In development, you can use the `.env` file to set environment variables.
+
+## Project Structure
+
+```
+.
+├── src/
+│   ├── routes/       # API routes
+│   ├── plugins/      # Axum plugins
+│   ├── config.rs     # Configuration management
+│   ├── error.rs      # Structured API error handling
+│   ├── lib.rs        # Axum server setup
+│   ├── main.rs       # Entry point
+│   └── state.rs      # Axum server state
+├── Cargo.toml        # Dependencies
+├── .env              # Local environment variables
+└── .env.example      # Example environment variables
+```
 
 ## Development
 
-### Project Structure
-
-```
-src/
-├── /api            # API route handlers
-├── /auth           # Authentication and authorization
-├── config.rs       # Defining and loading config variables
-├── crypto.rs       # Encryption and decryption utilities
-├── errors.rs       # Error types and handling
-├── lib.rs          # Building the Rocket server and mounting routes
-├── main.rs         # Application entry point
-├── openapi.rs      # Building the OpenAPI spec
-└── redis.rs        # Redis setup and utilities
-```
-
-## Deployment
-
-### Docker
-
-Build and run with Docker:
 ```bash
-docker build -t tinistream .
-docker run -p 8000:8000 tinistream
+# Run in development mode (loads .env file)
+cargo run
+
+# Run with custom log level
+APP_LOG_LEVEL=debug cargo run
+
+# Build for production
+cargo build --release
 ```
 
-### Configuration
+## Adding Routes
 
-Configuration is handled through environment variables with the prefix `STREAMER_`:
-- `STREAMER_REDIS_URL` - Redis connection string
-- `STREAMER_REDIS_POOL` - Redis connection pool size
-- `STREAMER_SECRET_KEY` - Secret key for encryption
-- ..etc..
+This template uses `axum-plugin` for modular initialization. To add routes:
 
-See [src/config.rs](src/config.rs) for all configuration options.
+1. Create a new plugin in a separate module
+2. Register it in `lib.rs`:
+
+```rust
+pub async fn create_app() -> anyhow::Result<InitializedApp<AppState>> {
+    let app = App::new()
+        .register(config::plugin())
+        .register(your_routes::plugin())  // Add your plugin here
+        .init()
+        .await?;
+    
+    Ok(app)
+}
+```
+
+## Middleware Plugins
+
+The template includes a `security` plugin by default. It adds common response headers, as well as a request body limiter and timeout using `tower::ServiceBuilder` and `tower-http`.
+
+When request logging is enabled during generation, the template also includes a `logging` plugin that adds request IDs and request/response tracing.
+
+## Error Handling
+
+Route handlers can return `AppResult<T>`, which is an alias for `Result<T, AppError>`. `AppError` implements `IntoResponse`, so API failures are returned as JSON. It also implements `From<anyhow::Error>`, so handlers can use `?` with `anyhow` errors:
+
+```rust
+use anyhow::Context;
+
+use crate::error::AppResult;
+
+async fn handler() -> AppResult<String> {
+    do_work().await.context("failed to do work")?;
+    Ok("done".to_string())
+}
+```
+
+## License
+
+Configure your license as needed.

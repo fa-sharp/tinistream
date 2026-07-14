@@ -1,9 +1,7 @@
-mod api_key;
 mod client_token;
 mod crypto;
-mod errors;
+mod error;
 
-pub use api_key::*;
-pub use client_token::*;
-pub use crypto::*;
-pub use errors::*;
+pub use client_token::ClientToken;
+pub use crypto::TokenEncryption;
+pub use error::AuthError;

@@ -1,33 +1,24 @@
 use std::time::Duration;
 
-use reqwest::header::HeaderMap;
-use rocket::{Ignite, Rocket};
-use tinistream::build_rocket;
-use tinistream_client::{Client, ClientEventsExt, ClientStreamExt};
-use tokio::{net::TcpListener, task::JoinHandle};
+use axum_test::TestServer;
+use tinistream_api::create_app;
 
-/// Run the Rocket server on a random port and return the handle, port, and shutdown signal.
-pub async fn setup_rocket() -> Result<
-    (
-        JoinHandle<Result<Rocket<Ignite>, rocket::Error>>,
-        u16,
-        rocket::Shutdown,
-    ),
-    std::io::Error,
-> {
-    let rocket = build_rocket();
-    let port = { TcpListener::bind("127.0.0.1:0").await?.local_addr()?.port() };
-    let figment = rocket.figment().clone().merge((rocket::Config::PORT, port));
+/// Setup the server listening on a random port. Returns the port, server, and shutdown future
+pub async fn setup_http_server() -> anyhow::Result<(
+    u16,
+    TestServer,
+    impl Future<Output = anyhow::Result<()>> + Send,
+)> {
+    dotenvy::dotenv().ok();
+    let app = create_app().await?;
+    let server = TestServer::builder().http_transport().build(app.router());
+    let port = server.server_address().unwrap().port().unwrap();
 
-    let rocket = rocket.configure(figment).ignite().await.expect("ignite");
-    let shutdown = rocket.shutdown();
-    let handle = tokio::spawn(rocket.launch());
-
-    Ok((handle, port, shutdown))
+    Ok((port, server, app.shutdown()))
 }
 
 /// Setup the tinistream Rust client with a backend API key
-pub fn setup_backend_client(port: u16) -> Client {
+pub fn setup_backend_client(port: u16) -> tinistream_client::Client {
     use reqwest::header::HeaderMap;
 
     let api_key = dotenvy::var("STREAMER_API_KEY").expect("API key not set");
@@ -38,25 +29,33 @@ pub fn setup_backend_client(port: u16) -> Client {
         .default_headers(api_key_header)
         .build()
         .expect("build client");
-    let client = Client::new_with_client(&format!("http://localhost:{port}"), http_client);
+    let client = tinistream_client::Client::new_with_client(
+        &format!("http://localhost:{port}"),
+        http_client,
+    );
 
     client
 }
 
 /// Setup reqwest client for frontend API requests
-pub fn setup_frontend_reqwest(token: &str) -> reqwest::Client {
-    let mut token_header = HeaderMap::new();
+pub fn setup_frontend_client(token: &str) -> reqwest::Client {
+    let mut token_header = reqwest::header::HeaderMap::new();
     token_header.insert("Authorization", format!("Bearer {token}").parse().unwrap());
     let http_client = reqwest::Client::builder()
         .default_headers(token_header)
         .build()
         .expect("build client");
+
     http_client
 }
 
 /// Spawn task to add 10 `(test_event, test_data)` events to the Redis stream on an interval
-pub fn add_events_task(client: Client, key: &str) -> tokio::task::JoinHandle<()> {
-    use tinistream_client::types::*;
+pub fn add_events_task(
+    client: tinistream_client::Client,
+    key: &str,
+) -> tokio::task::JoinHandle<()> {
+    use tinistream_client::types::{AddEvent, AddEventsRequest, StreamRequest};
+    use tinistream_client::{ClientIngestExt, ClientStreamExt};
 
     let key = key.to_owned();
     tokio::spawn(async move {
@@ -69,7 +68,9 @@ pub fn add_events_task(client: Client, key: &str) -> tokio::task::JoinHandle<()>
             let body = AddEventsRequest::builder()
                 .key(&key)
                 .events(vec![test_event.try_into().unwrap()]);
-            let _ = client.add_events().body(body).send().await;
+            if let Err(e) = client.add_events().body(body).send().await {
+                eprintln!("Error in add events task: {e}");
+            }
         }
         let _ = client
             .end_stream()
