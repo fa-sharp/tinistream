@@ -9,11 +9,50 @@ use tinistream_client::{
     types::{AddEvent, AddEventsRequest, StreamRequest},
 };
 
-use crate::common::{
-    add_events_task, setup_backend_client, setup_frontend_client, setup_http_server,
-};
+use crate::common::{setup_backend_client, setup_http_server};
 
 mod common;
+
+/// Setup reqwest client for frontend API requests
+pub fn setup_frontend_client(token: &str) -> reqwest::Client {
+    let mut token_header = reqwest::header::HeaderMap::new();
+    token_header.insert("Authorization", format!("Bearer {token}").parse().unwrap());
+    reqwest::Client::builder()
+        .default_headers(token_header)
+        .build()
+        .expect("build client")
+}
+
+/// Spawn task to add 10 `(test_event, test_data)` events to the Redis stream on an interval
+pub fn add_events_task(
+    client: tinistream_client::Client,
+    key: &str,
+) -> tokio::task::JoinHandle<()> {
+    use tinistream_client::types::{AddEvent, AddEventsRequest, StreamRequest};
+    use tinistream_client::{ClientIngestExt, ClientStreamExt};
+
+    let key = key.to_owned();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_millis(500));
+        for _ in 0..10 {
+            interval.tick().await;
+            let test_event = AddEvent::builder()
+                .data("test_data".to_owned())
+                .event("test_event");
+            let body = AddEventsRequest::builder()
+                .key(&key)
+                .events(vec![test_event.try_into().unwrap()]);
+            if let Err(e) = client.add_events().body(body).send().await {
+                eprintln!("Error in add events task: {e}");
+            }
+        }
+        let _ = client
+            .end_stream()
+            .body(StreamRequest::builder().key(key))
+            .send()
+            .await;
+    })
+}
 
 #[tokio::test]
 async fn basic() -> anyhow::Result<()> {
@@ -46,7 +85,7 @@ async fn basic() -> anyhow::Result<()> {
         .event("test_event")
         .try_into()
         .unwrap();
-    let events = std::iter::repeat(test_event).take(5).collect::<Vec<_>>();
+    let events = std::iter::repeat_n(test_event, 5).collect::<Vec<_>>();
     let res = client
         .add_events()
         .body(AddEventsRequest::builder().key(&key).events(events))
@@ -129,10 +168,10 @@ async fn client_sse() -> anyhow::Result<()> {
     assert_eq!(events.len(), 12);
     assert_eq!(events[0].event, "start");
     assert_eq!(events[11].event, "end");
-    for i in 1..=10 {
-        assert!(events[i].id.len() > 0);
-        assert_eq!(events[i].data, "test_data");
-        assert_eq!(events[i].event, "test_event");
+    for event in events.iter().take(11).skip(1) {
+        assert!(!event.id.is_empty());
+        assert_eq!(event.data, "test_data");
+        assert_eq!(event.event, "test_event");
     }
 
     Ok(())
@@ -209,10 +248,10 @@ async fn client_websocket() -> anyhow::Result<()> {
     assert_eq!(events.len(), 12);
     assert_eq!(events[0]["event"], "start");
     assert_eq!(events[11]["event"], "end");
-    for i in 1..=10 {
-        assert!(events[i]["id"].len() > 0);
-        assert_eq!(events[i]["data"], "test_data");
-        assert_eq!(events[i]["event"], "test_event");
+    for event in events.iter().take(11).skip(1) {
+        assert!(!event["id"].is_empty());
+        assert_eq!(event["data"], "test_data");
+        assert_eq!(event["event"], "test_event");
     }
 
     Ok(())

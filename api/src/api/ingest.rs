@@ -43,10 +43,10 @@ async fn add_events(
     StaticClient(redis): StaticClient,
     JsonBody(input): JsonBody<AddEventsRequest>,
 ) -> AppResult<Json<AddEventsResponse>> {
-    if !redis.is_active(&input.key).await? {
+    let Some(ids) = redis.write_events(&input.key, input.events).await? else {
         return Err(AppError::bad_request("stream not active"));
-    }
-    let num_events = redis.write_events(&input.key, input.events).await?.len();
+    };
+    let num_events = ids.len();
 
     Ok(Json(AddEventsResponse { num_events }))
 }

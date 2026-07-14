@@ -2,7 +2,7 @@ use fred::prelude::*;
 use futures::StreamExt;
 use itertools::Itertools;
 
-use crate::redis::{AddEvent, StreamService, constants, types::RedisStr};
+use crate::redis::{AddEvent, StreamService, constants, scripts, types::RedisStr};
 
 /// Redis client from static pool. Used for quick operations like retrieving stream status and
 /// initializing a stream, not long-running / blocking commands.
@@ -42,78 +42,61 @@ impl RedisClient {
             .client
             .hget(self.stream.meta_key(key), constants::META_STATUS_FIELD)
             .await?;
+
         Ok(status.is_some_and(|s| *s == constants::StreamStatus::Active))
     }
 
-    /// Start a new stream with the given key by writing a `start` entry and setting the expiration.
-    /// Deletes any old stream at the same key (make sure to check for an active stream beforehand).
-    /// Returns the ID of the start entry.
-    pub async fn start_stream(&self, key: &str, ttl: u32) -> FredResult<RedisStr> {
+    /// Start a new stream by writing a `start` entry and setting the expiration.
+    /// Deletes any old inactive stream at the same key.
+    /// Returns `None` if the stream is already active.
+    pub async fn start_stream(&self, key: &str, ttl: u32) -> FredResult<Option<RedisStr>> {
         let stream_key = self.stream.stream_key(key);
         let meta_key = self.stream.meta_key(key);
 
-        let trx = self.client.multi();
-        let _: () = trx.del(&[&stream_key, &meta_key]).await?;
-        let _: () = trx
-            .xadd(&stream_key, false, None, "*", constants::START_ENTRY)
-            .await?;
-        let _: () = trx.expire(&stream_key, ttl.into(), None).await?;
-        let _: () = trx.hset(&meta_key, constants::META_ACTIVE).await?;
-        let _: () = trx.expire(&meta_key, ttl.into(), None).await?;
-
-        let mut responses: Vec<Value> = trx.exec(true).await?;
-        responses.swap_remove(1).convert()
+        scripts::SCRIPTS
+            .start_stream(&self.client, &stream_key, &meta_key, ttl)
+            .await
     }
 
-    /// Write multiple events to the stream.
-    /// Returns the IDs of the written events.
+    /// Write multiple events to the stream, with an atomic check if the stream is active.
+    /// Returns the IDs of the written events, or `None` if the stream is not active.
     pub async fn write_events(
         &self,
         key: &str,
-        events: impl IntoIterator<Item = AddEvent>,
-    ) -> FredResult<Vec<RedisStr>> {
-        let stream_key = self.stream.stream_key(key);
-
-        let trx = self.client.multi();
-        for ev in events {
-            let entry = match ev.data.as_deref() {
-                Some(data) => vec![
-                    (constants::EVENT_KEY, ev.event.as_str()),
-                    (constants::DATA_KEY, data),
-                ],
-                None => vec![(constants::EVENT_KEY, ev.event.as_str())],
-            };
-            let _: () = trx
-                .xadd(&stream_key, true, ("MAXLEN", "~", self.max_len), "*", entry)
-                .await?;
-        }
-        trx.exec(true).await
-    }
-
-    /// Mark the stream as ended.
-    pub async fn end_stream(&self, key: &str) -> FredResult<()> {
+        events: Vec<AddEvent>,
+    ) -> FredResult<Option<Vec<RedisStr>>> {
         let stream_key = self.stream.stream_key(key);
         let meta_key = self.stream.meta_key(key);
 
-        let trx = self.client.multi();
-        let _: () = trx
-            .xadd(stream_key, true, None, "*", constants::END_ENTRY)
-            .await?;
-        let _: () = trx.hset(meta_key, constants::META_ENDED).await?;
-        trx.exec(true).await
+        scripts::SCRIPTS
+            .write_events(&self.client, &stream_key, &meta_key, self.max_len, events)
+            .await
     }
 
-    /// Mark the stream as cancelled.
-    pub async fn cancel_stream(&self, key: &str) -> FredResult<()> {
+    /// Mark the stream as ended. Returns `None` if the stream is not active.
+    pub async fn end_stream(&self, key: &str) -> FredResult<Option<RedisStr>> {
+        self.finish_stream(key, constants::StreamStatus::Ended, constants::END)
+            .await
+    }
+
+    /// Mark the stream as cancelled. Returns `None` if the stream is not active.
+    pub async fn cancel_stream(&self, key: &str) -> FredResult<Option<RedisStr>> {
+        self.finish_stream(key, constants::StreamStatus::Cancelled, constants::CANCEL)
+            .await
+    }
+
+    async fn finish_stream(
+        &self,
+        key: &str,
+        status: constants::StreamStatus,
+        event: &str,
+    ) -> FredResult<Option<RedisStr>> {
         let stream_key = self.stream.stream_key(key);
         let meta_key = self.stream.meta_key(key);
 
-        let trx = self.client.multi();
-        let _: () = trx
-            .xadd(stream_key, true, None, "*", constants::CANCEL_ENTRY)
-            .await?;
-        let _: () = trx.hset(meta_key, constants::META_CANCELLED).await?;
-        trx.exec(true).await
+        scripts::SCRIPTS
+            .finish_stream(&self.client, &stream_key, &meta_key, status, event)
+            .await
     }
 
     /// Get the ID, length, and TTL of all active streams matching the given pattern.

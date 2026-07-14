@@ -79,12 +79,13 @@ async fn create_stream(
     State(state): State<AppState>,
     JsonBody(input): JsonBody<StreamRequest>,
 ) -> AppResult<Json<StreamAccessResponse>> {
-    if redis.is_active(&input.key).await? {
-        return Err(AppError::bad_request("stream at this key already exists"));
-    }
-    let _start_id = redis
+    let start_id = redis
         .start_stream(&input.key, state.config.stream_ttl)
         .await?;
+    if start_id.is_none() {
+        return Err(AppError::bad_request("stream at this key already exists"));
+    }
+
     let token = state
         .client_tokens()
         .create(&input.key, state.config.stream_ttl)?;
@@ -124,10 +125,9 @@ async fn cancel_stream(
     StaticClient(redis): StaticClient,
     JsonBody(input): JsonBody<StreamRequest>,
 ) -> AppResult<Json<EndStreamResponse>> {
-    if !redis.is_active(&input.key).await? {
+    if redis.cancel_stream(&input.key).await?.is_none() {
         return Err(AppError::not_found("active stream not found"));
     }
-    redis.cancel_stream(&input.key).await?;
 
     Ok(Json(EndStreamResponse {
         status: StreamStatus::Cancelled,
@@ -139,10 +139,9 @@ async fn end_stream(
     StaticClient(redis): StaticClient,
     JsonBody(input): JsonBody<StreamRequest>,
 ) -> AppResult<Json<EndStreamResponse>> {
-    if !redis.is_active(&input.key).await? {
+    if redis.end_stream(&input.key).await?.is_none() {
         return Err(AppError::not_found("active stream not found"));
     }
-    redis.end_stream(&input.key).await?;
 
     Ok(Json(EndStreamResponse {
         status: StreamStatus::Ended,

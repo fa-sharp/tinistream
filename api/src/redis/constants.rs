@@ -8,17 +8,18 @@ pub const EVENT_KEY: &str = "event";
 /// Key of the data field in the Redis stream entry
 pub const DATA_KEY: &str = "data";
 
-pub const START_ENTRY: (&str, &str) = (EVENT_KEY, "start");
-pub const CANCEL_ENTRY: (&str, &str) = (EVENT_KEY, "cancel");
-pub const END_ENTRY: (&str, &str) = (EVENT_KEY, "end");
-pub const ERROR_ENTRY: (&str, &str) = (EVENT_KEY, "error");
+pub const START: &str = "start";
+pub const CANCEL: &str = "cancel";
+pub const END: &str = "end";
+pub const ERROR: &str = "error";
+
+pub const CANCEL_ENTRY: (&str, &str) = (EVENT_KEY, CANCEL);
+pub const END_ENTRY: (&str, &str) = (EVENT_KEY, END);
+pub const ERROR_ENTRY: (&str, &str) = (EVENT_KEY, ERROR);
 
 pub const STREAM_PREFIX: &str = "stream:";
 pub const META_PREFIX: &str = "meta:";
 pub const META_STATUS_FIELD: &str = "status";
-pub const META_ACTIVE: (&str, &str) = (META_STATUS_FIELD, StreamStatus::Active.as_str());
-pub const META_CANCELLED: (&str, &str) = (META_STATUS_FIELD, StreamStatus::Cancelled.as_str());
-pub const META_ENDED: (&str, &str) = (META_STATUS_FIELD, StreamStatus::Ended.as_str());
 
 #[derive(Debug, PartialEq, Serialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]

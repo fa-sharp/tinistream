@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use axum_test::TestServer;
 use tinistream_api::create_app;
 
@@ -29,53 +27,5 @@ pub fn setup_backend_client(port: u16) -> tinistream_client::Client {
         .default_headers(api_key_header)
         .build()
         .expect("build client");
-    let client = tinistream_client::Client::new_with_client(
-        &format!("http://localhost:{port}"),
-        http_client,
-    );
-
-    client
-}
-
-/// Setup reqwest client for frontend API requests
-pub fn setup_frontend_client(token: &str) -> reqwest::Client {
-    let mut token_header = reqwest::header::HeaderMap::new();
-    token_header.insert("Authorization", format!("Bearer {token}").parse().unwrap());
-    let http_client = reqwest::Client::builder()
-        .default_headers(token_header)
-        .build()
-        .expect("build client");
-
-    http_client
-}
-
-/// Spawn task to add 10 `(test_event, test_data)` events to the Redis stream on an interval
-pub fn add_events_task(
-    client: tinistream_client::Client,
-    key: &str,
-) -> tokio::task::JoinHandle<()> {
-    use tinistream_client::types::{AddEvent, AddEventsRequest, StreamRequest};
-    use tinistream_client::{ClientIngestExt, ClientStreamExt};
-
-    let key = key.to_owned();
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_millis(500));
-        for _ in 0..10 {
-            interval.tick().await;
-            let test_event = AddEvent::builder()
-                .data("test_data".to_owned())
-                .event("test_event");
-            let body = AddEventsRequest::builder()
-                .key(&key)
-                .events(vec![test_event.try_into().unwrap()]);
-            if let Err(e) = client.add_events().body(body).send().await {
-                eprintln!("Error in add events task: {e}");
-            }
-        }
-        let _ = client
-            .end_stream()
-            .body(StreamRequest::builder().key(key))
-            .send()
-            .await;
-    })
+    tinistream_client::Client::new_with_client(&format!("http://localhost:{port}"), http_client)
 }

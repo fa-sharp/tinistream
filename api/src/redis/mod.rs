@@ -3,6 +3,7 @@ mod constants;
 mod error;
 mod exclusive_client;
 mod reader;
+mod scripts;
 mod stream;
 mod types;
 mod util;
