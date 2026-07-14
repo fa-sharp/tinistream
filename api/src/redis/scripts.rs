@@ -32,7 +32,7 @@ impl RedisScripts {
         ];
 
         START_STREAM_SCRIPT
-            .evalsha_with_reload(&client, (stream_key, meta_key), args)
+            .evalsha_with_reload(client, (stream_key, meta_key), args)
             .await
     }
 
@@ -87,7 +87,7 @@ impl RedisScripts {
         ];
 
         FINISH_STREAM_SCRIPT
-            .evalsha_with_reload(&client, (stream_key, meta_key), args)
+            .evalsha_with_reload(client, (stream_key, meta_key), args)
             .await
     }
 }
