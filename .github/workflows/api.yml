@@ -12,6 +12,9 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
 env:
   RUST_VERSION: "1.94"
+  RUSTFLAGS: "-Dwarnings"
+  API_PKG: tinistream-api
+  CLIENT_PKG: tinistream-client
 
 jobs:
   api:
@@ -30,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install Rust toolchain
-        run: rustup toolchain install ${{ env.RUST_VERSION }} --profile minimal --no-self-update && rustup default ${{ env.RUST_VERSION }}
+        run: rustup toolchain install ${{ env.RUST_VERSION }} --no-self-update && rustup default ${{ env.RUST_VERSION }}
       - name: Setup rust-cache
         uses: Swatinem/rust-cache@v2
       - name: Install nextest
@@ -42,16 +45,19 @@ jobs:
         run: cargo check --workspace
 
       - name: Run cargo build for API
-        run: cargo build -p tinistream-api
+        run: cargo build -p ${{ env.API_PKG }}
 
       - name: Run cargo build for Rust client
-        run: cargo build -p tinistream-client
+        run: cargo build -p ${{ env.CLIENT_PKG }}
+
+      - name: Run cargo clippy for API
+        run: cargo clippy -p ${{ env.API_PKG }}
 
       - name: Build tests for API
-        run: cargo build --tests -p tinistream-api
+        run: cargo build --tests -p ${{ env.API_PKG }}
 
       - name: Run tests for API
-        run: cargo nextest run -p tinistream-api
+        run: cargo nextest run -p ${{ env.API_PKG }}
         env:
           STREAMER_API_KEY: ${{ secrets.STREAMER_API_KEY }}
           STREAMER_SECRET_KEY: ${{ secrets.STREAMER_SECRET_KEY }}
