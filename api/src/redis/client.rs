@@ -2,7 +2,7 @@ use fred::prelude::*;
 use futures::StreamExt;
 use itertools::Itertools;
 
-use crate::redis::{AddEvent, StreamService, constants, scripts, types::RedisStr};
+use crate::redis::{AddEvent, StreamService, constants, scripts::RedisScripts, types::RedisStr};
 
 /// Redis client from static pool. Used for quick operations like retrieving stream status and
 /// initializing a stream, not long-running / blocking commands.
@@ -53,7 +53,7 @@ impl RedisClient {
         let stream_key = self.stream.stream_key(key);
         let meta_key = self.stream.meta_key(key);
 
-        scripts::SCRIPTS
+        RedisScripts
             .start_stream(&self.client, &stream_key, &meta_key, ttl)
             .await
     }
@@ -68,7 +68,7 @@ impl RedisClient {
         let stream_key = self.stream.stream_key(key);
         let meta_key = self.stream.meta_key(key);
 
-        scripts::SCRIPTS
+        RedisScripts
             .write_events(&self.client, &stream_key, &meta_key, self.max_len, events)
             .await
     }
@@ -94,7 +94,7 @@ impl RedisClient {
         let stream_key = self.stream.stream_key(key);
         let meta_key = self.stream.meta_key(key);
 
-        scripts::SCRIPTS
+        RedisScripts
             .finish_stream(&self.client, &stream_key, &meta_key, status, event)
             .await
     }

@@ -4,26 +4,17 @@ use fred::{clients::Client, prelude::FredResult, types::scripts::Script};
 
 use crate::redis::{AddEvent, StreamStatus, constants, types::RedisStr};
 
-/// Lua scripts for atomic Redis stream mutations.
-pub(super) static SCRIPTS: LazyLock<RedisScripts> = LazyLock::new(RedisScripts::new);
-
-pub(super) struct RedisScripts {
-    start_stream: Script,
-    write_events: Script,
-    finish_stream: Script,
-}
+/// Lua scripts for atomic Redis stream mutations. The scripts return
+/// `nil` (i.e. `None`) when the stream state does not allow the mutation.
+pub(super) struct RedisScripts;
 
 impl RedisScripts {
-    fn new() -> Self {
-        Self {
-            start_stream: Script::from_lua(START_STREAM_SCRIPT),
-            write_events: Script::from_lua(WRITE_EVENTS_SCRIPT),
-            finish_stream: Script::from_lua(FINISH_STREAM_SCRIPT),
-        }
-    }
-
-    /// Start/activate the stream and returns the ID of the start event. Returns
-    /// `None` if stream is already active.
+    /// Start and activate a stream.
+    ///
+    /// Returns the Redis stream ID for the start event. Returns `None` if the
+    /// stream is already active. If an inactive stream exists at the same key,
+    /// the script deletes the old stream and metadata before creating the new
+    /// stream.
     pub(super) async fn start_stream(
         &self,
         client: &Client,
@@ -40,12 +31,15 @@ impl RedisScripts {
             constants::START,
         ];
 
-        self.start_stream
+        START_STREAM_SCRIPT
             .evalsha_with_reload(&client, (stream_key, meta_key), args)
             .await
     }
 
-    /// Write events to the stream. Returns `None` if stream is not active.
+    /// Write a batch of events to an active stream.
+    //
+    /// Returns the Redis stream IDs for all written events. Returns `None` if
+    /// the stream is not active, without writing any events.
     pub(super) async fn write_events(
         &self,
         client: &Client,
@@ -67,12 +61,15 @@ impl RedisScripts {
             None => [&ev.event, "0", ""],
         }));
 
-        self.write_events
+        WRITE_EVENTS_SCRIPT
             .evalsha_with_reload(client, (stream_key, meta_key), args)
             .await
     }
 
-    /// Write end event and mark stream as inactive
+    /// Write a terminal event and mark the stream inactive.
+    ///
+    /// Returns the Redis stream ID for the terminal event. Returns `None` if
+    /// the stream is not active, without appending a terminal event.
     pub(super) async fn finish_stream(
         &self,
         client: &Client,
@@ -89,14 +86,30 @@ impl RedisScripts {
             event,
         ];
 
-        self.finish_stream
+        FINISH_STREAM_SCRIPT
             .evalsha_with_reload(&client, (stream_key, meta_key), args)
             .await
     }
 }
 
-/// Lua script to atomically create a stream unless it is already active.
-const START_STREAM_SCRIPT: &str = r#"
+/// Atomically create a stream unless it is already active.
+///
+/// Key contract:
+/// - `KEYS[1]`: Redis stream key
+/// - `KEYS[2]`: stream metadata hash key
+///
+/// Argument contract:
+/// - `ARGV[1]`: metadata status field name
+/// - `ARGV[2]`: active status value
+/// - `ARGV[3]`: stream/meta TTL in seconds
+/// - `ARGV[4]`: stream entry event field name
+/// - `ARGV[5]`: start event value
+///
+/// Return contract:
+/// - stream ID for the start event when created
+/// - `nil` when the stream is already active
+static START_STREAM_SCRIPT: LazyLock<Script> = LazyLock::new(|| {
+    let lua = r#"
 if redis.call('HGET', KEYS[2], ARGV[1]) == ARGV[2] then
   return nil
 end
@@ -109,9 +122,32 @@ redis.call('EXPIRE', KEYS[2], ARGV[3])
 
 return id
 "#;
+    Script::from_lua(lua)
+});
 
-/// Lua script to atomically check for an active stream and write events.
-const WRITE_EVENTS_SCRIPT: &str = r#"
+/// Atomically write a batch of events if the stream is active.
+///
+/// Key contract:
+/// - `KEYS[1]`: Redis stream key
+/// - `KEYS[2]`: stream metadata hash key
+///
+/// Fixed argument contract:
+/// - `ARGV[1]`: metadata status field name
+/// - `ARGV[2]`: active status value
+/// - `ARGV[3]`: approximate stream max length
+/// - `ARGV[4]`: stream entry event field name
+/// - `ARGV[5]`: stream entry data field name
+///
+/// Repeated event argument contract, starting at `ARGV[6]`:
+/// - event name
+/// - data flag: `"1"` means include the data field, `"0"` means omit it
+/// - data value, or an empty placeholder when the flag is `"0"`
+///
+/// Return contract:
+/// - array of stream IDs for the written events
+/// - `nil` when the stream is not active
+static WRITE_EVENTS_SCRIPT: LazyLock<Script> = LazyLock::new(|| {
+    let lua = r#"
 if redis.call('HGET', KEYS[2], ARGV[1]) ~= ARGV[2] then
   return nil
 end
@@ -135,9 +171,27 @@ end
 
 return ids
 "#;
+    Script::from_lua(lua)
+});
 
-/// Lua script to atomically append a terminal event and mark a stream inactive.
-const FINISH_STREAM_SCRIPT: &str = r#"
+/// Atomically append a terminal event and mark a stream inactive.
+///
+/// Key contract:
+/// - `KEYS[1]`: Redis stream key
+/// - `KEYS[2]`: stream metadata hash key
+///
+/// Argument contract:
+/// - `ARGV[1]`: metadata status field name
+/// - `ARGV[2]`: active status value
+/// - `ARGV[3]`: final status value
+/// - `ARGV[4]`: stream entry event field name
+/// - `ARGV[5]`: terminal event value
+///
+/// Return contract:
+/// - stream ID for the terminal event
+/// - `nil` when the stream is not active
+static FINISH_STREAM_SCRIPT: LazyLock<Script> = LazyLock::new(|| {
+    let lua = r#"
 if redis.call('HGET', KEYS[2], ARGV[1]) ~= ARGV[2] then
   return nil
 end
@@ -147,3 +201,5 @@ redis.call('HSET', KEYS[2], ARGV[1], ARGV[3])
 
 return id
 "#;
+    Script::from_lua(lua)
+});

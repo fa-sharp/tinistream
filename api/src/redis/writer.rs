@@ -1,6 +1,8 @@
 use fred::prelude::FredResult;
 
-use crate::redis::{AddEvent, ExclusiveClient, StreamService, scripts, types::RedisStr};
+use crate::redis::{
+    AddEvent, ExclusiveClient, StreamService, scripts::RedisScripts, types::RedisStr,
+};
 
 /// A stream writer with an exclusive lock on a Redis connection, for
 /// long-running write operations (e.g. for ingesting events into Redis)
@@ -29,7 +31,7 @@ impl RedisWriter {
         let stream_key = self.stream.stream_key(key);
         let meta_key = self.stream.meta_key(key);
 
-        scripts::SCRIPTS
+        RedisScripts
             .write_events(&self.client, &stream_key, &meta_key, self.max_len, events)
             .await
     }
