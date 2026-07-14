@@ -41,7 +41,7 @@ impl FromRequestParts<AppState> for ReaderClient {
     ) -> Result<Self, Self::Rejection> {
         match state.exclusive_clients.get().await? {
             Some(client) => {
-                let reader = RedisReader::new(client, state.config.client_timeout, state.streams());
+                let reader = RedisReader::new(client, state.streams());
                 Ok(Self(reader))
             }
             None => Err(AppError::too_many_requests()),
