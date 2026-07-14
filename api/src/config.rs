@@ -45,8 +45,8 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             host: IpAddr::V4(Ipv4Addr::LOCALHOST),
-            port: 8081,
-            base_url: "http://localhost:8081".into(),
+            port: 8000,
+            base_url: "http://localhost:8000".into(),
             log_level: "info".into(),
             request_id_header: "x-request-id".into(),
             api_key: String::new(),

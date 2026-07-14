@@ -1,34 +1,27 @@
-ARG RUST_VERSION=1.90
+ARG RUST_VERSION=1.94
 ARG DEBIAN_VERSION=bookworm
 
-### Build Rust backend ###
+### Build server ###
 FROM rust:${RUST_VERSION}-slim-${DEBIAN_VERSION} AS build
 WORKDIR /app
 
+# Copy all necessary files to build the server
 COPY ./Cargo.toml ./Cargo.lock ./
-COPY ./api/Cargo.toml api/Cargo.toml
-COPY ./api/src api/src
-COPY ./clients/rust/Cargo.toml clients/rust/Cargo.toml
-COPY ./clients/rust/src clients/rust/src
+COPY ./api ./api
+COPY ./clients/rust ./clients/rust
 
-ARG pkg=tinistream
+ARG pkg=tinistream-api
 
-RUN apt-get update -qq && apt-get install -y -qq pkg-config && apt-get clean
 RUN --mount=type=cache,id=rust_target,target=/app/target \
     --mount=type=cache,id=cargo_registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=cargo_git,target=/usr/local/cargo/git \
     set -eux; \
-    cargo build --package $pkg --release; \
+    cargo build --package $pkg --release --locked; \
     objcopy --compress-debug-sections target/release/$pkg ./run-server
 
 
-### Final image ###
-FROM debian:${DEBIAN_VERSION}-slim
-
-# Install required dependencies
-RUN apt-get update -qq && \
-    apt-get install -y -qq ca-certificates && \
-    apt-get clean
+### Run server ###
+FROM debian:${DEBIAN_VERSION}-slim AS run
 
 # Create non-root user
 ARG UID=10001
@@ -39,14 +32,12 @@ RUN adduser \
     --shell "/sbin/nologin" \
     --uid "${UID}" \
     appuser
-
 USER appuser
 
-# Copy app files
-COPY --from=build /app/run-server /usr/local/bin/
+# Copy server binary
+COPY --from=build --chown=appuser /app/run-server /usr/local/bin/
 
-# Run
-ENV STREAMER_ADDRESS=0.0.0.0
-ENV STREAMER_PORT=8080
-EXPOSE 8080
+# Run server
+WORKDIR /app
+ENV STREAMER_HOST=0.0.0.0
 CMD ["run-server"]
