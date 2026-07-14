@@ -91,14 +91,16 @@ impl ExclusiveClientManager {
 }
 
 /// Shutdown the exclusive client, unblocking any blocking command
-/// and shutting down the connection handle with a grace period
+/// and shutting down the connection handle with a 5 second grace period
 async fn shutdown_client((client, handle): (Client, ConnectHandle)) {
     let _ = client.unblock_self(None).await;
     if let Err(e) = client.quit().await {
         tracing::warn!("Failed to quit Redis client {}: {e}", client.id());
     }
+
     let abort_handle = handle.abort_handle();
-    if let Err(_) = tokio::time::timeout(Duration::from_secs(5), handle).await {
+    let grace_period = Duration::from_secs(5);
+    if tokio::time::timeout(grace_period, handle).await.is_err() {
         tracing::warn!("Aborting connection for Redis client {}...", client.id());
         abort_handle.abort();
     }

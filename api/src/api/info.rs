@@ -13,7 +13,7 @@ api_routes! {
 }
 
 /// Get information about the server
-async fn get_info<'r>(State(state): State<AppState>) -> Json<InfoResponse> {
+async fn get_info(State(state): State<AppState>) -> Json<InfoResponse> {
     let streaming_available = state.exclusive_clients.num_available();
     let redis_stats = RedisStats {
         r#static: state.config.redis_pool,

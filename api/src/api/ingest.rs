@@ -82,7 +82,7 @@ async fn ws_stream(
     WriterClient(writer): WriterClient,
     ws: WebSocketUpgrade,
 ) -> axum::response::Response {
-    let response = ws.on_upgrade(async move |ws| {
+    ws.on_upgrade(async move |ws| {
         let (mut ws_writer, ws_reader) = ws.split();
         let mut stream_chunks = transform_ws_stream(ws_reader).try_ready_chunks(INGEST_BATCH_SIZE);
 
@@ -125,9 +125,7 @@ async fn ws_stream(
                 }
             }
         }
-    });
-
-    response
+    })
 }
 
 async fn write_event_batch(
