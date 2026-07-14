@@ -13,6 +13,7 @@ dockerfile = "./Dockerfile"
 STREAMER_PORT = "8080"
 STREAMER_BASE_URL = "https://rs-chat-tinistream.fly.dev"
 STREAMER_LOG_LEVEL = "info"
+STREAMER_REQUEST_ID_HEADER = "Fly-Request-Id"
 
 [http_service]
 internal_port = 8080
