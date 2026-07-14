@@ -10,6 +10,7 @@ on:
       - Cargo.lock
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+
 env:
   RUST_VERSION: "1.94"
   RUSTFLAGS: "-Dwarnings"

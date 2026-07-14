@@ -1,10 +1,14 @@
-# See https://fly.io/docs/app-guides/continuous-deployment-with-github-actions/
-
 name: Fly Deploy
 on:
   push:
-    branches:
-      - main
+    branches: ["main"]
+    tags-ignore: ["v*"]
+    paths:
+      - "api/**"
+      - "clients/rust/**"
+      - Cargo.toml
+      - Cargo.lock
+
 jobs:
   deploy:
     name: Deploy app
