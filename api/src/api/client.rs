@@ -64,7 +64,11 @@ async fn client_ws(
                     ws_msg = ws_reader.next() => {
                         match ws_msg {
                             Some(Ok(WsMessage::Close(_))) | None => break,
-                            Some(_) => continue,
+                            Some(Ok(_)) => continue,
+                            Some(Err(err)) => {
+                                tracing::warn!("WebSocket client read error: {err}");
+                                break;
+                            },
                         }
                     }
                     stream_msg = stream.next() => {
