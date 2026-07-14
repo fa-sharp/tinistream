@@ -1,12 +1,9 @@
-use std::{ops::Deref, time::Duration};
+use std::time::Duration;
 
 use anyhow::Context;
 use fred::{prelude::*, socket2::TcpKeepalive};
 
-use crate::{
-    plugins::Plugin,
-    redis::{ExclusiveClientManager, RedisWriter},
-};
+use crate::{plugins::Plugin, redis::ExclusiveClientManager};
 
 /// Plugin that sets up the Redis static pool and exclusive connections
 pub fn plugin() -> Plugin {
@@ -37,12 +34,8 @@ pub fn plugin() -> Plugin {
                 config.redis_timeout,
             );
 
-            let ingest_hash = RedisWriter::load_ingest_script(&static_pool).await?;
-            let ingest_hash_str = Box::leak(ingest_hash.into_boxed_str()); // OK to leak, created once & used throughout app's lifetime
-
             app.insert(static_pool)?;
             app.insert(exclusive_clients)?;
-            app.insert(IngestScriptHash(ingest_hash_str))?;
             Ok(app)
         })
         .on_shutdown(async |app| {
@@ -52,13 +45,4 @@ pub fn plugin() -> Plugin {
 
             Ok(())
         })
-}
-
-/// The hash of the ingest Lua script
-pub struct IngestScriptHash(&'static str);
-impl Deref for IngestScriptHash {
-    type Target = &'static str;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
 }

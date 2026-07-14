@@ -1,28 +1,26 @@
-use fred::prelude::{FredResult, LuaInterface};
+use std::sync::LazyLock;
+
+use fred::{prelude::FredResult, types::scripts::Script};
 
 use crate::redis::{AddEvent, ExclusiveClient, StreamService, constants, types::RedisStr};
+
+/// Lua scripts for atomic writes
+static SCRIPTS: LazyLock<RedisScripts> = LazyLock::new(RedisScripts::new);
 
 /// A stream writer with an exclusive lock on a Redis connection, for
 /// long-running write operations (e.g. for ingesting events into Redis)
 pub struct RedisWriter {
     client: ExclusiveClient,
-    stream: StreamService,
     max_len: u32,
-    script_hash: &'static str,
+    stream: StreamService,
 }
 
 impl RedisWriter {
-    pub fn new(
-        client: ExclusiveClient,
-        max_len: u32,
-        stream_service: StreamService,
-        script_hash: &'static str,
-    ) -> Self {
+    pub fn new(client: ExclusiveClient, max_len: u32, stream: StreamService) -> Self {
         Self {
             client,
             max_len,
-            stream: stream_service,
-            script_hash,
+            stream,
         }
     }
 
@@ -49,14 +47,23 @@ impl RedisWriter {
             None => [&ev.event, "0", ""],
         }));
 
-        self.client
-            .evalsha(&*self.script_hash, (stream_key, meta_key), args)
+        SCRIPTS
+            .write_events
+            .evalsha_with_reload(&self.client, (stream_key, meta_key), args)
             .await
     }
+}
 
-    /// Load the event ingest Lua script into Redis and get the script hash
-    pub async fn load_ingest_script(client: &impl LuaInterface) -> FredResult<String> {
-        client.script_load(WRITE_EVENTS_SCRIPT).await
+/// Redis Lua scripts for atomic writes
+struct RedisScripts {
+    write_events: Script,
+}
+
+impl RedisScripts {
+    pub fn new() -> Self {
+        Self {
+            write_events: Script::from_lua(WRITE_EVENTS_SCRIPT),
+        }
     }
 }
 

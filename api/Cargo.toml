@@ -36,6 +36,7 @@ fred = {
     "i-keys",
     "i-scripts",
     "i-streams",
+    "sha-1",
     "transactions"
   ]
 }

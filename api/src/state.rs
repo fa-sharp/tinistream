@@ -7,7 +7,6 @@ use axum_plugin::{AppState, TypeMap};
 use crate::{
     auth::{ClientToken, TokenEncryption},
     config::AppConfig,
-    plugins::redis::IngestScriptHash,
     redis::{ExclusiveClientManager, StreamService},
 };
 
@@ -21,7 +20,6 @@ pub struct AppStateInner {
     pub encryptor: TokenEncryption,
     pub static_pool: fred::clients::Pool,
     pub exclusive_clients: ExclusiveClientManager,
-    pub ingest_script_hash: IngestScriptHash,
 }
 
 impl Deref for AppState {
