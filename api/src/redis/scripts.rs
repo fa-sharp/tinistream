@@ -16,7 +16,6 @@ impl RedisScripts {
     /// the script deletes the old stream and metadata before creating the new
     /// stream.
     pub(super) async fn start_stream(
-        &self,
         client: &Client,
         stream_key: &str,
         meta_key: &str,
@@ -41,7 +40,6 @@ impl RedisScripts {
     /// Returns the Redis stream IDs for all written events. Returns `None` if
     /// the stream is not active, without writing any events.
     pub(super) async fn write_events(
-        &self,
         client: &Client,
         stream_key: &str,
         meta_key: &str,
@@ -71,7 +69,6 @@ impl RedisScripts {
     /// Returns the Redis stream ID for the terminal event. Returns `None` if
     /// the stream is not active, without appending a terminal event.
     pub(super) async fn finish_stream(
-        &self,
         client: &Client,
         stream_key: &str,
         meta_key: &str,

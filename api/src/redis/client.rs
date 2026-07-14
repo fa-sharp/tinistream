@@ -53,9 +53,7 @@ impl RedisClient {
         let stream_key = self.stream.stream_key(key);
         let meta_key = self.stream.meta_key(key);
 
-        RedisScripts
-            .start_stream(&self.client, &stream_key, &meta_key, ttl)
-            .await
+        RedisScripts::start_stream(&self.client, &stream_key, &meta_key, ttl).await
     }
 
     /// Write multiple events to the stream, with an atomic check if the stream is active.
@@ -68,9 +66,7 @@ impl RedisClient {
         let stream_key = self.stream.stream_key(key);
         let meta_key = self.stream.meta_key(key);
 
-        RedisScripts
-            .write_events(&self.client, &stream_key, &meta_key, self.max_len, events)
-            .await
+        RedisScripts::write_events(&self.client, &stream_key, &meta_key, self.max_len, events).await
     }
 
     /// Mark the stream as ended. Returns `None` if the stream is not active.
@@ -94,9 +90,7 @@ impl RedisClient {
         let stream_key = self.stream.stream_key(key);
         let meta_key = self.stream.meta_key(key);
 
-        RedisScripts
-            .finish_stream(&self.client, &stream_key, &meta_key, status, event)
-            .await
+        RedisScripts::finish_stream(&self.client, &stream_key, &meta_key, status, event).await
     }
 
     /// Get the ID, length, and TTL of all active streams matching the given pattern.
